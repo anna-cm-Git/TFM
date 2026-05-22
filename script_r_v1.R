@@ -5,7 +5,6 @@ library(readxl)
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
-library(writexl)
 
 ####OE1. SINTESIS LITERATURA CIENTIFICA####
 S1_study <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/data_extraction_v14_ACM.xlsx", 
