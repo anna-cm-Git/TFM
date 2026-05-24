@@ -6,10 +6,16 @@ library(tidyverse)
 library(ggplot2)
 library(dplyr)
 library(writexl)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
 
 ####OE1. SINTESIS LITERATURA CIENTIFICA####
-S1_study <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/data_extraction_v14_ACM.xlsx", 
-                                      sheet = "1_study")
+S1_study <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v1.xlsx", 
+                                      sheet = "1_study") %>% 
+  filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica"))
+
+#tengo que poner los paises por our_id y quitar lo que no sea mediterranean basis!!!!
 
 ###### OE1.1 Evolución temporal del número de publicaciones por tipo de estudio ####
 files_merged_12052026 <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/files_merged_12052026.xlsx", 
@@ -110,8 +116,9 @@ ggplot(ST_nfires_excludepaleo, aes(x = study_type, y = total_incendios, fill = s
 
 
 ####OE2. VARIABLES Y FACTORES MÁS IMPORTANTES####
-S3_measures <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/data_extraction_v14_ACM.xlsx", 
-                       sheet = "3_measures")
+S3_measures <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v1.xlsx", 
+                       sheet = "3_measures") %>% 
+  filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica"))
 
 ######OE2.1 Variables respuesta más importantes estudiadas####
 
@@ -184,3 +191,40 @@ write_xlsx(moderators_global, "OE2.2_moderators")
 
 
 #minusculas moderadores
+
+####OE3. MAPEAR ESTUDIOS POR PAIS Y CRUZAR CON INCENDIOS######
+S2_fire <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v1.xlsx", 
+                       sheet = "2_fire") %>% 
+filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica"))
+
+#exclude fire_id NA's, mantain "all", and fire_id 1, 2, 3, etc. without duplicates 1, 1,...
+nfires_country <- S2_fire %>%
+  filter(!is.na(fire_id)) %>%   #esclude NA's from fire_id (no info.)
+  distinct(country, fire_id, .keep_all = TRUE) %>% #keep "all" and eliminate duplicates in fire_id
+  group_by(country) %>%
+  summarise(
+    n_fires = n()
+  )
+
+world <- ne_countries(scale = "medium", returnclass = "sf")   #cargo paises del mundo
+mbasis <- c("Algeria", "France", "Greece", "Israel",
+                   "Italy", "Morocco",
+                   "Portugal", "Spain", "Turkey")
+
+mbasis_world <- world %>% filter(name %in% mbasis)    #defino y filtro por mis paises
+
+mapa_mb_w <- left_join(mbasis_world, nfires_country, by = c("name" = "country"))
+
+# 4. DIBUIXAR EL MAPA
+ggplot(data = mapa_mb_w) +
+  geom_sf(aes(label = n_fires), linewidth = 0.2) +
+  scale_fill_viridis_c(option = "viridis", na.value = "grey90", direction = -1) +
+  geom_sf_label(aes(label = n_fires), size = 3.5, fontface = "bold", label.size = 0.2) +
+  coord_sf(xlim = c(-10, 40), ylim = c(28, 48), expand = FALSE) +
+  theme_minimal() +
+  labs(
+    title = "Estudios de recuperación postincendio por país",
+    fill = "Nº estudios",
+    x = "Longitud",
+    y = "Latitud"
+  )
