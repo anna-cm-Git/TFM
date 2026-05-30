@@ -3,27 +3,31 @@
 
 library(readxl)
 library(tidyverse)
-library(ggplot2)
-library(dplyr)
 library(writexl)
 library(sf)
 library(rnaturalearth)
 library(rnaturalearthdata)
 
 ####OE1. SINTESIS LITERATURA CIENTIFICA####
-S1_study <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v1.xlsx", 
-                                      sheet = "1_study") %>% 
-  filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica"))
+S1_study <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v2.xlsx", 
+                                      sheet = "1_study")
+S2_fire <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v2.xlsx", 
+                      sheet = "2_fire")
+S2_fire_MB <- S2_fire %>%            #MB indica que es la tabla de datos solo con paises de la Mediterranean Basis
+  select(our_id, country) %>% 
+  filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica")) %>% 
+  distinct(our_id, .keep_all = TRUE)
 
-#tengo que poner los paises por our_id y quitar lo que no sea mediterranean basis!!!!
+S1_study_MB <- S1_study %>%
+  inner_join(S2_fire_MB, by = "our_id")
 
 ###### OE1.1 Evolución temporal del número de publicaciones por tipo de estudio ####
 files_merged_12052026 <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/files_merged_12052026.xlsx", 
                                     sheet = "Sheet1")
 files_merged_articles <- files_merged_12052026 %>% 
-  filter(str_detect(Document.Type, regex("article", ignore_case = TRUE)))
+  filter(str_detect(Document.Type, regex("article", ignore_case = TRUE))) #que se quede solo los articulos
 
-data_OE1_1 <- S1_study %>%            #aqui asocio por el our_id el año de publicacion con mis datos de estudio
+data_OE1_1 <- S1_study_MB %>%            #aqui asocio por el our_id el año de publicacion con mis datos de estudio
   left_join(files_merged_articles %>% select(our_id, Year), by = "our_id")
 
 ggplot(data_OE1_1, aes(x = Year, fill = study_type)) +
@@ -88,13 +92,13 @@ write.csv2(portipoestudio, "OE1.2_portipoestudio")
 ST_nfires <- data_OE1_1 %>%                      #aqui con paleoecologia 
   mutate(n_fires = as.numeric(n_fires)) %>%
   group_by(study_type) %>%
-  summarise(total_incendios = sum(n_fires, na.rm = TRUE))    #quitar NA's para el gráfico
+  summarise(total_incendios = round(mean(n_fires, na.rm = TRUE), 1))    #quitar NA's para el gráfico
 
 
 ST_nfires_excludepaleo <- data_OE1_2 %>%                      #aqui sin paleoecologia
   mutate(n_fires = as.numeric(n_fires)) %>% 
   group_by(study_type) %>%
-  summarise(total_incendios = sum(n_fires, na.rm = TRUE))
+  summarise(total_incendios = round(mean(n_fires, na.rm = TRUE), 1))
 
 ggplot(ST_nfires_excludepaleo, aes(x = study_type, y = total_incendios, fill = study_type)) +
   geom_col(width = 0.5) +
@@ -114,31 +118,90 @@ ggplot(ST_nfires_excludepaleo, aes(x = study_type, y = total_incendios, fill = s
   )
 
 
-
 ####OE2. VARIABLES Y FACTORES MÁS IMPORTANTES####
-S3_measures <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v1.xlsx", 
-                       sheet = "3_measures") %>% 
-  filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica"))
+S3_measures <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v2.xlsx",
+                          sheet = "3_measures")
+S3_measures_MB <- S3_measures %>%
+  inner_join(S2_fire_MB, by = "our_id")
 
 ######OE2.1 Variables respuesta más importantes estudiadas####
-
 #qué tipo de variables son las más estudiadas? 
-round(prop.table(table(S3_measures$variable_type)) * 100, 1)
+round(prop.table(table(S3_measures_MB$variable_type)) * 100, 1)
 
 #qué subtipo de variables son las más estudiadas?
-#para vegetación
-subtipos_vegetacion <- S3_measures %>% 
-  filter(variable_type == "vegetation") %>% 
-  group_by(variable_subtype) %>% 
-  summarise(percentatge = round((n() / nrow(.)) * 100, 1))
+#para vegetación, primero filtramos los datos por "vegetacion"
+S3_measures_veg <- S3_measures_MB %>%
+  filter(variable_type == "vegetation")
 
-ggplot(subtipos_vegetacion, aes(x = reorder(variable_subtype, percentatge), y = percentatge)) +
+#para vegetación, tenemos que clasificar variables respuesta en categorias: structure, abundance, diversity,
+#vegetation function, y spectral response
+#Es una función que te clasifica la columna que le des ("var") en diferentes
+#categorias segun las palabras que aparecen en la variable:
+
+subcategories_veg <- function (var) {
+  
+  stru <- "weight|length|crown|size|canopy|litter|diamet|height|density|prese|biomass|structure|cover|wood|volume|area|age"
+  abun <- "abund"
+  dive <- "dominan|equitatib|diversity|shannon|brillouin|simpson|eveness|richness|similarity|iap|sef|compo|fugac|allele|heterozig"
+  vefu <- "mortal|death|efficienc|assimil|respro|sprout|viabil|pollen|surviv|time|seed|recruit|produ|regene|stomat|rate|18|13|15|xilo|grow|cone|shoot|new"
+  spre <- "ndvi|evi|^lai|specific leaf area|fpar|land|nbr|rri|rr|indic|vari|reflectance|band|pixel"
+  
+  #poner en minusculas
+  # ^ esto es para indicar que se fija en que el termino esta al principio
+  
+  varlower <- str_to_lower(var) #pasar a minusculas
+  
+    case_when(     #orden importa: lo q tiene menos opciones primero = lo prioritario
+      str_detect(varlower, abun) ~ "abundance",
+      str_detect(varlower, spre) ~ "spectral response",
+      str_detect(varlower, dive) ~ "diversity",
+      str_detect(varlower, vefu) ~ "vegetation function",
+      str_detect(varlower, stru) ~ "structure",
+            varlower %in% c("-", "NA", "NaN") ~ "none") #NA's se llamen none)    
+      #me deja las que no clasifica con el nombre original                 
+}
+
+#aplico la funcion a mi tabla
+
+V_clasificacion <- S3_measures_veg %>% 
+  mutate(across(
+    .cols = c(response_variable), 
+    .fns = ~ subcategories_veg(.x), 
+    .names = "{.col}_clean"
+  )) %>% 
+  relocate(response_variable_clean, .before = response_units)
+
+#cambios manuales
+V_clasificacion[23, 3] = "structure"
+V_clasificacion[106, 3] = "structure"
+V_clasificacion[107, 3] = "structure"
+V_clasificacion[115, 3] = "spectral response"
+V_clasificacion[120, 3] = "diversity"
+V_clasificacion[184, 3] = "vegetation function"
+V_clasificacion[185, 3] = "vegetation function"
+V_clasificacion[190, 3] = "diversity"
+V_clasificacion[220, 3] = "structure"
+V_clasificacion[221, 3] = "structure"
+V_clasificacion[231, 3] = "diversity"
+V_clasificacion[240, 3] = "structure"
+V_clasificacion[252, 3] = "vegetation function"
+V_clasificacion[256, 3] = "structure"
+V_clasificacion[257, 3] = "structure"
+V_clasificacion[258, 3] = "structure"
+V_clasificacion[259, 3] = "structure"
+V_clasificacion[271, 3] = "spectral response"
+
+subtipos_vegetacion <- V_clasificacion %>% 
+  filter(variable_type == "vegetation") %>% 
+  group_by(response_variable_clean) %>% 
+  summarise(percentage = round((n() / nrow(.)) * 100, 1))
+
+#faltaria cambiar el ggplot
+ggplot(subtipos_vegetacion, aes(x = reorder(response_variable_clean, percentage), y = percentage)) +
   geom_bar(stat = "identity", fill = "green") +
-  scale_x_discrete(limits = levels(reorder(subtipos_vegetacion$variable_subtype, subtipos_vegetacion$percentatge)),
-                   labels = c("structure" = "estructura", "regeneration" = "regeneración", "diversity" = "diversidad", "composition" = "composición",
-                               "spectral response" = "respuesta espectral", "ecological processes" = "procesos ecológicos", "functional traits" = "rasgos funcionales",
-                               "ecosystem services" = "servicios ecosistémicos", "chemical properties" = "propiedades químicas",
-                               "biological properties" = "propiedades biologicas", "others" = "otras", "interactions" = "interacciones", "landscape" = "paisaje")) +
+  scale_x_discrete(limits = levels(reorder(subtipos_vegetacion$response_variable_clean, subtipos_vegetacion$percentage)),
+                   labels = c("abundance" = "abundancia", "diversity" = "diversidad", "spectral response" = "respuesta espectral",
+                   "structure" = "estructura", "vegetation function" = "función de la vegetación")) +
   coord_flip() +
   labs(
     tag = "a) vegetación",
@@ -150,8 +213,9 @@ ggplot(subtipos_vegetacion, aes(x = reorder(variable_subtype, percentatge), y = 
 
 #3 primeros subtipos ver variable respuesta más medida (>10%)
 
+
 #para suelos
-subtipos_suelos <- S3_measures %>% 
+subtipos_suelos <- S3_measures_MB %>% 
   filter(variable_type == "soil") %>% 
   group_by(variable_subtype) %>% 
   summarise(percentatge = round((n() / nrow(.)) * 100, 1))
@@ -172,7 +236,9 @@ ggplot(subtipos_suelos, aes(x = reorder(variable_subtype, percentatge), y = perc
   theme(axis.title.y = element_text(margin = margin(r = 6)))
 
 #3 primeros subtipos ver variables respuesta más medidas (>10%)
-
+top3 <- tapply(V_clasificacion$response_variable, V_clasificacion$response_variable_clean, function(x) {
+  head(sort(table(x), decreasing = TRUE), 3)   #como hace el recuento si tengo una variabilidad enorme en mis denominaciones? Tal vez mejor hacerlo En Excel al final de todo
+})
 
 ######OE2.2 Moderadores más importantes estudiados####
 #solo descriptivo para asociar moderador a paper y facilitarme luego la agrupacion de moderadores (consultar papers si es necesario
@@ -189,11 +255,83 @@ moderators_global <- S3_measures %>%
 
 write_xlsx(moderators_global, "OE2.2_moderators")
 
-
 #minusculas moderadores
 
+####SCRIPT CASEWHEN######
+
+#Es una función que te clasifica la columna que le des ("var") en diferentes
+#tipos de perturbación según las palabras que aparecen en la variable:
+
+disturbance <- function (var) {
+  
+  agri <- "agri|agro"
+  cult <- "crop|cultiv|orch|terrac|garden|fallow|paddy|shifting|swidden|slash and burn|coffee|chagra|cacao"
+  past <- "graz|grass|pasti|pastu|ganad|cattle|livestock"
+  logg <- "logg|cut|harvest|silvi|clear|stem|fell| wood|madera|gap|thinn|explo|^timber"
+  fire <- "fire$|fires|fire |^burn|burning"
+  mini <- "mining|potash"
+  turi <- "turism|access"
+  foru <- "fuelwood|fire-wood|rubber|palm fronds|removal|copp|fruit|non-timber|trapp"
+  plant <- "plantation|commercial species planting|eucalyptus"
+  prot <- "conserv|reserve|protect|naturwald|park|passive"
+  rest <- "plant|active|refor|seed|soil preparation"
+  
+  varlower <- str_to_lower(var)
+  
+  varlower <- ifelse(str_detect(varlower, "fire wood"), str_replace(varlower, "fire wood", "fire-wood"), varlower)
+  
+  case_when(str_detect(varlower, "fire, cutting and grazing|logging and fires and previously agriculture") ~ 
+              "burning/logging/farming", #5 predisturbances, 1 disturbance
+            
+            (str_detect(varlower, paste(agri, cult, past, sep = "|")) & str_detect(varlower, logg)) | 
+              str_detect(varlower, "deforestation") ~ "logging/farming",
+            
+            str_detect(varlower, agri) |
+              (str_detect(varlower, cult) & str_detect(varlower, past)) ~ "farming",
+            
+            str_detect(varlower, paste(agri, cult, past, sep = "|")) & 
+              str_detect(varlower, fire) ~ "burning/farming", #No separo entre tipos de agricultura (cultivation/animal) para simplificar
+            
+            str_detect(varlower, logg) & 
+              str_detect(varlower, fire)  ~ "burning/logging",
+            
+            str_detect(varlower, logg) & 
+              str_detect(varlower, mini)  ~ "logging/mining",
+            
+            str_detect(varlower, paste(agri, cult, past, sep = "|")) & 
+              str_detect(varlower, turi) ~ "farming/recreation", #Aunque solo hay un caso de pasture, por consistencia dejo farming genérico
+            
+            str_detect(varlower, logg) & 
+              str_detect(varlower, foru)  ~ "forest uses/logging",
+            
+            str_detect(varlower, logg) & 
+              str_detect(varlower, plant)  ~ "plantation/logging",
+            
+            str_detect(varlower, cult) ~ "cultivation",
+            str_detect(varlower, past) ~ "animal farming",
+            str_detect(varlower, prot) ~ "protection",
+            str_detect(varlower, logg) ~ "logging",
+            str_detect(varlower, agri) ~ "farming",
+            str_detect(varlower, foru) ~ "forest uses",
+            str_detect(varlower, "slash") ~ "forestry slash",
+            str_detect(varlower, fire) ~ "burning",
+            str_detect(varlower, mini) ~ "mining",
+            str_detect(varlower, plant) ~ "plantation",
+            str_detect(varlower, rest) ~ "active restoration",
+            str_detect(varlower, turi) ~ "recreation",
+            str_detect(varlower, "hous") ~ "urban",
+            varlower %in% c("-", "NA", "NaN") ~ "none",
+            TRUE ~ varlower) 
+}
+
+#Luego la uso así: 
+
+datos %>% 
+  mutate(across(.cols = c(disturbance1_age, disturbance2, predisturbances, current_impact), .fns = disturbance, .names = "{.col}_clean"))
+
+
 ####OE3. MAPEAR ESTUDIOS POR PAIS Y CRUZAR CON INCENDIOS######
-S2_fire <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v1.xlsx", 
+S2_fire <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v2.xlsx", 
                        sheet = "2_fire") %>% 
 filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica"))
 
@@ -217,10 +355,12 @@ mapa_mb_w <- left_join(mbasis_world, nfires_country, by = c("name" = "country"))
 
 # 4. DIBUIXAR EL MAPA
 ggplot(data = mapa_mb_w) +
-  geom_sf(aes(label = n_fires), linewidth = 0.2) +
-  scale_fill_viridis_c(option = "viridis", na.value = "grey90", direction = -1) +
-  geom_sf_label(aes(label = n_fires), size = 3.5, fontface = "bold", label.size = 0.2) +
-  coord_sf(xlim = c(-10, 40), ylim = c(28, 48), expand = FALSE) +
+  geom_sf(aes(fill = n_fires), color = "black", linewidth = 0.2) +
+  geom_sf_label(aes(label = n_fires),
+                fill = "white", color = "black", size = 3.5,
+                fontface = "bold", label.size = 0.2) +
+  scale_fill_viridis_c(option = "magma", na.value = "grey90", direction = -1) +
+  coord_sf(xlim = c(-15, 40), ylim = c(25, 50), expand = FALSE) +
   theme_minimal() +
   labs(
     title = "Estudios de recuperación postincendio por país",
