@@ -177,39 +177,38 @@ V_clasificacion[106, 3] = "structure"
 V_clasificacion[107, 3] = "structure"
 V_clasificacion[115, 3] = "spectral response"
 V_clasificacion[120, 3] = "diversity"
-V_clasificacion[140, 3] = "structure"
-V_clasificacion[184, 3] = "vegetation function"
-V_clasificacion[185, 3] = "vegetation function"
-V_clasificacion[190, 3] = "diversity"
-V_clasificacion[220, 3] = "structure"
-V_clasificacion[221, 3] = "structure"
-V_clasificacion[231, 3] = "diversity"
-V_clasificacion[240, 3] = "structure"
-V_clasificacion[252, 3] = "vegetation function"
+V_clasificacion[142, 3] = "structure"
+V_clasificacion[186, 3] = "vegetation function"
+V_clasificacion[187, 3] = "vegetation function"
+V_clasificacion[192, 3] = "diversity"
+V_clasificacion[222, 3] = "structure"
+V_clasificacion[223, 3] = "structure"
+V_clasificacion[233, 3] = "diversity"
+V_clasificacion[242, 3] = "structure"
 V_clasificacion[256, 3] = "structure"
 V_clasificacion[257, 3] = "structure"
-V_clasificacion[258, 3] = "structure"
-V_clasificacion[259, 3] = "structure"
-V_clasificacion[271, 3] = "spectral response"
-V_clasificacion[299, 3] = "structure"
+V_clasificacion[260, 3] = "structure"   
+V_clasificacion[261, 3] = "structure" 
+V_clasificacion[273, 3] = "spectral response"
 V_clasificacion[301, 3] = "structure"
-V_clasificacion[323, 3] = "structure"
-V_clasificacion[324, 3] = "structure"
-V_clasificacion[335, 3] = "structure"
+V_clasificacion[303, 3] = "structure"
+V_clasificacion[325, 3] = "structure"
+V_clasificacion[326, 3] = "structure"
 V_clasificacion[337, 3] = "structure"
-V_clasificacion[392, 3] = "abundance"   
-V_clasificacion[430, 3] = "structure"   
-V_clasificacion[448, 3] = "structure"   
-V_clasificacion[449, 3] = "structure"   
-V_clasificacion[455, 3] = "diversity"   
-V_clasificacion[456, 3] = "diversity" 
-V_clasificacion[468, 3] = "diversity"   
-V_clasificacion[483, 3] = "vegetation function"    
-V_clasificacion[490, 3] = "spectral response"
-V_clasificacion[491, 3] = "spectral response"
-V_clasificacion[495, 3] = "structure"
-V_clasificacion[496, 3] = "structure"
+V_clasificacion[339, 3] = "structure"
+V_clasificacion[394, 3] = "abundance"   
+V_clasificacion[432, 3] = "structure"   
+V_clasificacion[450, 3] = "structure"   
+V_clasificacion[451, 3] = "structure"   
+V_clasificacion[457, 3] = "diversity"   
+V_clasificacion[458, 3] = "diversity" 
+V_clasificacion[470, 3] = "diversity"   
+V_clasificacion[485, 3] = "vegetation function"    
+V_clasificacion[492, 3] = "spectral response"
+V_clasificacion[493, 3] = "spectral response"
 V_clasificacion[497, 3] = "structure"
+V_clasificacion[498, 3] = "structure"
+V_clasificacion[499, 3] = "structure"
 
 #acuerdate anna si añades mas datos agrupar variables y revisar antes de correr el
 #script de cambios manuales que vayas añadiendo
@@ -239,43 +238,61 @@ ggplot(subtipos_vegetacion, aes(x = reorder(response_variable_clean, percentage)
 write_xlsx(V_clasificacion, "V_class.xlsx")
 
 ######Suelos######
-#categorias: propuiedades físicas, químicas, y biológicas. Procesos ecosistémicos e hidrológicos.
+S3_measures_soil <- S3_measures_MB %>%
+  filter(variable_type == "soil")
 
+#categorias: propiedades físicas, químicas, y biológicas. Procesos ecosistémicos e hidrológicos.
 subcategories_soil <- function (var) {
   
-  phys <- "agdb|weight|thd|tdd|dbh|foliar|length|crown|size|canopy|litter|diamet|height|density|prese|mass|structure|cover|wood|volume|area"
-  chem <- "abund"
-  biol <- "choro|dominan|equitatib|diversity|shannon|brillouin|simpson|eveness|richness|similarity|iap|sef|compo|fugac|allele|heterozig"
-  ecos <- "sequ|storag|elong|mortal|death|serotinity|dead|kill|burn|liv|leaf area|efficienc|assimil|nectar|respro|sprout|germin|viabil|pollen|surviv|time|seed|recruit|produ|regene|stomat|rate|18|13|15|xilo|grow|cone|shoot|new"
-  hidr <- "ndvi|evi|fpar|land|nbr|rri|rr|indic|vari|reflectance|band|change|pixel|ndwi|siwsi|^rvi"
-  
-  # ^ esto es para indicar que se fija en que el termino esta al principio
-  
+  phys <- "diam|textur|sand|silt|clay|compact|bulk|porosity|infiltr|humidit|water|moist|temperat|hydraulic conduct|stab"
+  chem <- "total|ph|electrical|cation|extract|nutrient|^som|labile|avail|exchang|organic|carbon|^n|nitrog|c/n|
+  ^soc|^toc|^na|sodiu|^c|^p|^mg|magnes|^ca|^k|nh4|no2|humic|fluv|n:p"
+  biol <- "plfa|micro|bacter|dna|enzymat|respirat|biomass|invertebr|diversit|fung|activ|abund|rich|shann|qbs|gluco|aryl"
+  ecos <- "cycl|decompo|flux|multi"
+  hidr <- "run|eros|yield|sedim|loss"
+
   varlower <- str_to_lower(var) #pasar a minusculas
   
   case_when(     #orden importa: lo q tiene menos opciones primero = lo prioritario
-    str_detect(varlower, abun) ~ "abundance",
-    str_detect(varlower, spre) ~ "spectral response",
-    str_detect(varlower, dive) ~ "diversity",
-    str_detect(varlower, vefu) ~ "vegetation function",
-    str_detect(varlower, stru) ~ "structure",
+    str_detect(varlower, hidr) ~ "hydrological processes",
+    str_detect(varlower, ecos) ~ "ecosystem processes",
+    str_detect(varlower, biol) ~ "biological properties",
+    str_detect(varlower, phys) ~ "physical properties",
+    str_detect(varlower, chem) ~ "chemical properties",
     varlower %in% c("-", "NA", "NaN") ~ "none") #NA's se llamen none)    
   #me deja las que no clasifica con el nombre original                 
 }
 
+#aplico funcion a mi tabla
+S_clasificacion <- S3_measures_soil %>% 
+  mutate(across(
+    .cols = c(response_variable), 
+    .fns = ~ subcategories_soil(.x), 
+    .names = "{.col}_clean"
+    )) %>% 
+  relocate(response_variable_clean, .before = response_units)
 
+#cambios manuales
+S_clasificacion[27, 3] = "ecosystem processes"
+S_clasificacion[31, 3] = "hydrological processes"
+S_clasificacion[109, 3] = "biological properties"
+S_clasificacion[133, 3] = "hydrological processes"
+S_clasificacion[143, 3] = "hydrological processes"
+S_clasificacion[210, 3] = "physical properties"
+S_clasificacion[240, 3] = "hydrological processes"
 
-subtipos_suelos <- S3_measures_MB %>% 
+subtipos_suelos <- S_clasificacion %>% 
   filter(variable_type == "soil") %>% 
-  group_by(variable_subtype) %>% 
-  summarise(percentatge = round((n() / nrow(.)) * 100, 1))
+  group_by(response_variable_clean) %>% 
+  summarise(percentage = round((n() / nrow(.)) * 100, 1))
 
-ggplot(subtipos_suelos, aes(x = reorder(variable_subtype, percentatge), y = percentatge)) +
+#representacion grafica
+ggplot(subtipos_suelos, aes(x = reorder(response_variable_clean, percentage), y = percentage)) +
   geom_bar(stat = "identity", fill = "brown") +
-  scale_x_discrete(limits = levels(reorder(subtipos_suelos$variable_subtype, subtipos_suelos$percentatge)),
-                   labels = c("structure" = "estructura", "regeneration" = "regeneración", "diversity" = "diversidad", "physical properties" = "propiedades físicas",
-                   "composition" = "composición", "ecological processes" = "procesos ecológicos", "chemical properties" = "propiedades químicas",
-                              "biological properties" = "propiedades biologicas", "others" = "otras", "erosion" = "erosión")) +
+  scale_x_discrete(limits = levels(reorder(subtipos_suelos$response_variable_clean, subtipos_suelos$percentage)),
+                   labels = c("physical properties" = "propiedades físicas", "chemical properties" = "propiedades químicas",
+                              "biological properties" = "propiedades biologicas", "ecosystem processes = procesos ecosistémicos",
+                              "hydrological processes" = "procesos hidrológicos")) +
   coord_flip() +
   labs(
     tag = "b) suelos",
@@ -293,92 +310,66 @@ top3 <- tapply(V_clasificacion$response_variable, V_clasificacion$response_varia
 #####OE2.2 Moderadores más importantes estudiados#####
 #solo descriptivo para asociar moderador a paper y facilitarme luego la agrupacion de moderadores (consultar papers si es necesario
 #no puedo dar un conteo tipo moderador / paper porque hemos agrupado moderadores, asi que esto es solo descriptivo
-moderators_paper <- S3_measures %>% 
+moderators_paper <- S3_measures_MB %>% 
   separate_rows(moderator_type, sep = ";") %>% 
-  distinct(our_id, moderator_type) %>%  #Elimino filas duplicadas para que solo se quede con los moderadores por our_id (por paper).
-  add_count(moderator_type, name = "n_papers")  # Recuento de moderador por paper
+  distinct(our_id, moderator_type)  #Elimino filas duplicadas para que solo se quede con los moderadores por our_id (por paper).
 
-#conocer moderadores por tipo en global, esto ya si es útil
-moderators_global <- S3_measures %>%            
-  separate_rows(moderator_type, sep = ";") %>% 
-  count(moderator_type, name = "n_papers")
+write_xlsx(moderators_paper, "OE2.2_moderadores.xlsx")
 
-write_xlsx(moderators_global, "OE2.2_moderators")
+#clasificacion de moderadores
 
-#minusculas moderadores
-
-####SCRIPT CASEWHEN######
-
-#Es una función que te clasifica la columna que le des ("var") en diferentes
-#tipos de perturbación según las palabras que aparecen en la variable:
-
-disturbance <- function (var) {
+subcategories_mods <- function (var) {
   
-  agri <- "agri|agro"
-  cult <- "crop|cultiv|orch|terrac|garden|fallow|paddy|shifting|swidden|slash and burn|coffee|chagra|cacao"
-  past <- "graz|grass|pasti|pastu|ganad|cattle|livestock"
-  logg <- "logg|cut|harvest|silvi|clear|stem|fell| wood|madera|gap|thinn|explo|^timber"
-  fire <- "fire$|fires|fire |^burn|burning"
-  mini <- "mining|potash"
-  turi <- "turism|access"
-  foru <- "fuelwood|fire-wood|rubber|palm fronds|removal|copp|fruit|non-timber|trapp"
-  plant <- "plantation|commercial species planting|eucalyptus"
-  prot <- "conserv|reserve|protect|naturwald|park|passive"
-  rest <- "plant|active|refor|seed|soil preparation"
+  fire <- "sever|nbr|intens|freq|recurr|return|fire|ocurr|size|burnt"
+  time <- "tslf|time|year|after|month"
+  envi <- "orient|elev|rough|hli|slop|altitu|aspec|posit|expos|topogr|bedroc|morpho|site|plot|geol"
+  sowa <- "soil|water|stream|rock"
+  clim <- "rain|clim|droug|aridit|season"
+  vege <- "stem|litter|bark|shrub|sapling|wood|forb|gramin|trunk|canop|specie|densi|richn|veget|cover|fores|plant|heigh|dbh|basal|tree|stand age|^age|life|regen|seed|cone|succession"
+  huma <- "manag|treatm|logg|thinn|land use|use|prescrib|pile|human"
+
+  varlower <- str_to_lower(var) #pasar a minusculas
   
-  varlower <- str_to_lower(var)
-  
-  varlower <- ifelse(str_detect(varlower, "fire wood"), str_replace(varlower, "fire wood", "fire-wood"), varlower)
-  
-  case_when(str_detect(varlower, "fire, cutting and grazing|logging and fires and previously agriculture") ~ 
-              "burning/logging/farming", #5 predisturbances, 1 disturbance
-            
-            (str_detect(varlower, paste(agri, cult, past, sep = "|")) & str_detect(varlower, logg)) | 
-              str_detect(varlower, "deforestation") ~ "logging/farming",
-            
-            str_detect(varlower, agri) |
-              (str_detect(varlower, cult) & str_detect(varlower, past)) ~ "farming",
-            
-            str_detect(varlower, paste(agri, cult, past, sep = "|")) & 
-              str_detect(varlower, fire) ~ "burning/farming", #No separo entre tipos de agricultura (cultivation/animal) para simplificar
-            
-            str_detect(varlower, logg) & 
-              str_detect(varlower, fire)  ~ "burning/logging",
-            
-            str_detect(varlower, logg) & 
-              str_detect(varlower, mini)  ~ "logging/mining",
-            
-            str_detect(varlower, paste(agri, cult, past, sep = "|")) & 
-              str_detect(varlower, turi) ~ "farming/recreation", #Aunque solo hay un caso de pasture, por consistencia dejo farming genérico
-            
-            str_detect(varlower, logg) & 
-              str_detect(varlower, foru)  ~ "forest uses/logging",
-            
-            str_detect(varlower, logg) & 
-              str_detect(varlower, plant)  ~ "plantation/logging",
-            
-            str_detect(varlower, cult) ~ "cultivation",
-            str_detect(varlower, past) ~ "animal farming",
-            str_detect(varlower, prot) ~ "protection",
-            str_detect(varlower, logg) ~ "logging",
-            str_detect(varlower, agri) ~ "farming",
-            str_detect(varlower, foru) ~ "forest uses",
-            str_detect(varlower, "slash") ~ "forestry slash",
-            str_detect(varlower, fire) ~ "burning",
-            str_detect(varlower, mini) ~ "mining",
-            str_detect(varlower, plant) ~ "plantation",
-            str_detect(varlower, rest) ~ "active restoration",
-            str_detect(varlower, turi) ~ "recreation",
-            str_detect(varlower, "hous") ~ "urban",
-            varlower %in% c("-", "NA", "NaN") ~ "none",
-            TRUE ~ varlower) 
+  case_when(     #orden importa: lo q tiene menos opciones primero = lo prioritario
+    str_detect(varlower, clim) ~ "climate",
+    str_detect(varlower, time) ~ "time since fire",
+    str_detect(varlower, envi) ~ "environmental and site conditions",
+    str_detect(varlower, huma) ~ "use and human management",
+    str_detect(varlower, sowa) ~ "soil traits and water availability",
+    str_detect(varlower, fire) ~ "fire regime and traits",
+    str_detect(varlower, vege) ~ "prefire vegetation traits",
+
+        varlower %in% c("-", "NA", "NaN") ~ "none") #NA's se llamen none)    
+  #me deja las que no clasifica con el nombre original                 
 }
 
-#Luego la uso así: 
+#aplico funcion a mi tabla
+M_clasificacion <- moderators_paper %>% 
+  mutate(across(
+    .cols = c(moderator_type), 
+    .fns = ~ subcategories_mods(.x), 
+    .names = "{.col}_clean"
+  ))
 
-datos %>% 
-  mutate(across(.cols = c(disturbance1_age, disturbance2, predisturbances, current_impact), .fns = disturbance, .names = "{.col}_clean"))
-
+#cambios manuales
+M_clasificacion[68, 2] = "fire regime and traits"
+M_clasificacion[90, 2] = "prefire vegetation traits"
+M_clasificacion[98, 2] = "spatial factors"
+M_clasificacion[99, 2] = "prefire vegetation traits"
+M_clasificacion[100, 2] = "prefire vegetation traits"
+M_clasificacion[101, 2] = "prefire vegetation traits"
+M_clasificacion[102, 2] = "prefire vegetation traits"
+M_clasificacion[103, 2] = "prefire vegetation traits"
+M_clasificacion[105, 2] = "fire regime and traits"
+M_clasificacion[106, 2] = "fire regime and traits"
+M_clasificacion[107, 2] = "prefire vegetation traits"
+M_clasificacion[108, 2] = "spatial factors"
+M_clasificacion[109, 2] = "spatial factors"
+M_clasificacion[115, 2] = "prefire vegetation traits"
+M_clasificacion[157, 2] = "prefire vegetation traits"
+M_clasificacion[194, 2] = "deer presence"
+M_clasificacion[215, 2] = "fire regime and traits"
+M_clasificacion[216, 2] = "prefire habitat"
 
 ####OE3. MAPEAR ESTUDIOS POR PAIS Y CRUZAR CON INCENDIOS####
 S2_fire <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v3.xlsx", 
