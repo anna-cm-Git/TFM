@@ -314,33 +314,33 @@ moderators_paper <- S3_measures_MB %>%
   separate_rows(moderator_type, sep = ";") %>% 
   distinct(our_id, moderator_type)  #Elimino filas duplicadas para que solo se quede con los moderadores por our_id (por paper).
 
-write_xlsx(moderators_paper, "OE2.2_moderadores.xlsx")
-
 #clasificacion de moderadores
 
 subcategories_mods <- function (var) {
   
+  spat <- "spat|autocov|coord|eucli|surround"
   fire <- "sever|nbr|intens|freq|recurr|return|fire|ocurr|size|burnt"
-  time <- "tslf|time|year|after|month"
-  envi <- "orient|elev|rough|hli|slop|altitu|aspec|posit|expos|topogr|bedroc|morpho|site|plot|geol"
-  sowa <- "soil|water|stream|rock"
-  clim <- "rain|clim|droug|aridit|season"
-  vege <- "stem|litter|bark|shrub|sapling|wood|forb|gramin|trunk|canop|specie|densi|richn|veget|cover|fores|plant|heigh|dbh|basal|tree|stand age|^age|life|regen|seed|cone|succession"
+  time <- "tslf|time|year|after|month|date|succe"
+  envi <- "habita|environ|landscape type|ecos|orient|elev|rough|hli|slop|curv|altitu|aspec|posit|expos|topogr|bedroc|morpho|site|plot|geo|subcatch"
+  sowa <- "fung|bact|organ|^ph|moist|soil|water|stream|rock|^som|^toc|nutr|permea|humi|avail|^som|^toc"
+  clim <- "^rain|clim|droug|aridit|season|thorn|preci|tempe"
+  vege <- "bryop|moss|leaf|defol|ndvi|stem|herb|fun|litter|bark|shrub|sapling|wood|forb|gramin|trunk|canop|specie|densi|richn|veget|cover|fores|plant|heigh|dbh|diam|basal|tree|stand age|^age|life|regen|recov|seed|cone"
   huma <- "manag|treatm|logg|thinn|land use|use|prescrib|pile|human"
-
+  
   varlower <- str_to_lower(var) #pasar a minusculas
   
   case_when(     #orden importa: lo q tiene menos opciones primero = lo prioritario
+    str_detect(varlower, spat) ~ "spatial factors",
     str_detect(varlower, clim) ~ "climate",
     str_detect(varlower, time) ~ "time since fire",
     str_detect(varlower, envi) ~ "environmental and site conditions",
     str_detect(varlower, huma) ~ "use and human management",
     str_detect(varlower, sowa) ~ "soil traits and water availability",
     str_detect(varlower, fire) ~ "fire regime and traits",
-    str_detect(varlower, vege) ~ "prefire vegetation traits",
+    str_detect(varlower, vege) ~ "vegetation traits",
 
-        varlower %in% c("-", "NA", "NaN") ~ "none") #NA's se llamen none)    
-  #me deja las que no clasifica con el nombre original                 
+        varlower %in% c("-", "NA", "NaN") ~ "none",    #NA's se llamen none
+    TRUE~var)
 }
 
 #aplico funcion a mi tabla
@@ -352,24 +352,67 @@ M_clasificacion <- moderators_paper %>%
   ))
 
 #cambios manuales
-M_clasificacion[68, 2] = "fire regime and traits"
-M_clasificacion[90, 2] = "prefire vegetation traits"
-M_clasificacion[98, 2] = "spatial factors"
-M_clasificacion[99, 2] = "prefire vegetation traits"
-M_clasificacion[100, 2] = "prefire vegetation traits"
-M_clasificacion[101, 2] = "prefire vegetation traits"
-M_clasificacion[102, 2] = "prefire vegetation traits"
-M_clasificacion[103, 2] = "prefire vegetation traits"
-M_clasificacion[105, 2] = "fire regime and traits"
-M_clasificacion[106, 2] = "fire regime and traits"
-M_clasificacion[107, 2] = "prefire vegetation traits"
-M_clasificacion[108, 2] = "spatial factors"
-M_clasificacion[109, 2] = "spatial factors"
-M_clasificacion[115, 2] = "prefire vegetation traits"
-M_clasificacion[157, 2] = "prefire vegetation traits"
-M_clasificacion[194, 2] = "deer presence"
-M_clasificacion[215, 2] = "fire regime and traits"
-M_clasificacion[216, 2] = "prefire habitat"
+M_clasificacion[68, 3] = "spatial factors"
+M_clasificacion[90, 3] = "vegetation traits"
+M_clasificacion[99, 3] = "vegetation traits"
+M_clasificacion[100, 3] = "vegetation traits"
+M_clasificacion[101, 3] = "vegetation traits"
+M_clasificacion[102, 3] = "vegetation traits"
+M_clasificacion[103, 3] = "vegetation traits"
+M_clasificacion[105, 3] = "fire regime and traits"
+M_clasificacion[106, 3] = "fire regime and traits"
+M_clasificacion[107, 3] = "vegetation traits"
+M_clasificacion[115, 3] = "vegetation traits"
+M_clasificacion[157, 3] = "vegetation traits"
+M_clasificacion[215, 3] = "fire regime and traits"
+M_clasificacion[250, 3] =  "time since fire"     #measures vegetation recovery
+M_clasificacion[294, 3] = "vegetation traits"
+M_clasificacion[316, 3] = "vegetation traits"
+M_clasificacion[368, 3] = "spatial factors"
+M_clasificacion[369, 3] = "spatial factors"
+M_clasificacion[371, 3] = "fire regime and traits"
+M_clasificacion[384, 3] = "use and human management"
+M_clasificacion[424, 3] = "vegetation traits"
+M_clasificacion[438, 3] = "vegetation traits"
+M_clasificacion[442, 3] = "vegetation traits"
+M_clasificacion[443, 3] = "vegetation traits"
+M_clasificacion[480, 3] = "spatial factors"
+M_clasificacion[518, 3] = "vegetation traits"
+
+#porcentaje de papers que analiza cada tipo de moderador
+total_papers <- n_distinct(M_clasificacion$our_id)
+subtipo_mods <- M_clasificacion %>%
+  distinct(our_id, moderator_type_clean) %>% 
+  filter(!is.na(moderator_type_clean) & moderator_type_clean != "NA") %>%    #elimina vacios y donde pone NA
+  count(moderator_type_clean, name = "num_papers") %>% 
+  mutate(percentage = round((num_papers/total_papers)*100, 1)) %>% 
+  arrange(desc(percentage)) #desc = orden descendente de mayor a menor
+
+Mods_final <- subtipo_mods %>% 
+  slice(-9) %>% #elimino una fila vacia, no habia moderadores
+  mutate(moderator_type_clean = if_else(percentage < 1, "others", moderator_type_clean)) %>%  #moderadores < 1% a "others"
+  group_by(moderator_type_clean) %>% 
+  summarise(num_papers = sum(num_papers),
+            percentage = sum(percentage)) %>%
+  arrange(desc(percentage))
+
+#representacion grafica
+ggplot(Mods_final, aes(x = reorder(moderator_type_clean, percentage), y = percentage)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  scale_x_discrete(limits = levels(reorder(Mods_final$moderator_type_clean, Mods_final$percentage)),
+                   labels = c("time since fire" = "tiempo desde el incendio", "vegetation traits" = "atributos de la vegetación",
+                              "fire regime and traits" = "caracteristicas y regimen del incendio",
+                              "environmental and site conditions" = "condiciones ambientales y del sitio",
+                              "use and human management" = "uso y gestion antropica",
+                              "soil traits and water availability" = "caracteristicas del suelo y disponibilidad de agua",
+                              "climate" = "clima", "spatial factors" = "distribucion espacial", "others" = "otros")) +
+  coord_flip() +
+  labs(
+    x = "Tipo de moderador",
+    y = "Porcentaje (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.title.y = element_text(margin = margin(r = 6)))
 
 ####OE3. MAPEAR ESTUDIOS POR PAIS Y CRUZAR CON INCENDIOS####
 S2_fire <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v3.xlsx", 
