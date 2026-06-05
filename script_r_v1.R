@@ -9,9 +9,9 @@ library(rnaturalearth)
 library(rnaturalearthdata)
 
 ####OE1. SINTESIS LITERATURA CIENTIFICA####
-S1_study <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v3.xlsx", 
+S1_study <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
                                       sheet = "1_study")
-S2_fire <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v3.xlsx", 
+S2_fire <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
                       sheet = "2_fire")
 S2_fire_MB <- S2_fire %>%            #MB indica que es la tabla de datos solo con paises de la Mediterranean Basis
   select(our_id, country) %>% 
@@ -70,29 +70,28 @@ ggplot(data_OE1_2, aes(x = Year)) +
   theme_classic() +
   theme(
     legend.position = "bottom",
-    text = element_text(family = "Arial", size = 11),
+    text = element_text(size = 11),
     axis.text.x = element_text(angle = 45, hjust = 1),
     panel.grid.major.x = element_blank(),
     panel.grid.minor = element_blank()
   )
 
 ##### OE1.2 Asociación entre study_level y study_type: ¿el tipo de estudio varia segun si se estudia a nivel de comunidad o especie? #####
-#para el global de 107 estudios
-solo_vegetacion <- subset(data_OE1_2, !is.na(study_level))
+#para el global de estudios
+solo_vegetacion <- subset(data_OE1_2, !is.na(study_level) & study_level != "NA")
 relacion_ST_SL <- xtabs(~ study_level + study_type, data = solo_vegetacion)
 relacion_ST_SL
 global <- prop.table(relacion_ST_SL) * 100     # % respecto el total de estudios
-global
 portipoestudio <- prop.table(relacion_ST_SL, margin = 2) * 100   # % respecto el total de cada tipo de estudio
 portipoestudio
-write.csv2(global, "OE1.2_global")
-write.csv2(portipoestudio, "OE1.2_portipoestudio")
+write.csv2(global, "OE1.2_global.csv")
+write.csv2(portipoestudio, "OE1.2_portipoestudio.csv")
 
 ##### OE1.3 Asociación entre study_type y nº incendios: el tipo de estudio varia en relación al nº de incendios estudiados? #####
 ST_nfires <- data_OE1_1 %>%                      #aqui con paleoecologia 
   mutate(n_fires = as.numeric(n_fires)) %>%
   group_by(study_type) %>%
-  summarise(total_incendios = round(mean(n_fires, na.rm = TRUE), 1))    #quitar NA's para el gráfico
+  summarise(total_incendios = round(mean(n_fires, na.rm = TRUE), 1))    #quitar NA's y all's para el gráfico
 
 
 ST_nfires_excludepaleo <- data_OE1_2 %>%                      #aqui sin paleoecologia
@@ -100,7 +99,7 @@ ST_nfires_excludepaleo <- data_OE1_2 %>%                      #aqui sin paleoeco
   group_by(study_type) %>%
   summarise(total_incendios = round(mean(n_fires, na.rm = TRUE), 1))
 
-ggplot(ST_nfires_excludepaleo, aes(x = study_type, y = total_incendios, fill = study_type)) +
+ggplot(ST_nfires_values, aes(x = study_type, y = total_incendios, fill = study_type)) +
   geom_col(width = 0.5) +
   geom_text(aes(label = total_incendios), vjust = -0.5, family = "Arial", size = 3.5) +
   scale_x_discrete(labels = c("field" = "Campo", "remote sensing" = "Teledetección", "field;remote sensing" = "Campo + Teledetección")) +
@@ -110,16 +109,29 @@ ggplot(ST_nfires_excludepaleo, aes(x = study_type, y = total_incendios, fill = s
   theme_classic() +
   theme(
     legend.position = "none",
-    text = element_text(family = "Arial", size = 11),
+    text = element_text(size = 11),
     axis.text.x = element_text(angle = 0, hjust = 0.5),
     axis.title.x = element_text(margin = margin(t = 8)),
     panel.grid.major.x = element_blank(),
     panel.grid.minor = element_blank()
-  )
+  )                                                       #grafico mitjana n_fires
 
+#tengo dos valores que me suben la media mucho para remote sensing, si los elimino?
+ST_nfires_values <- data_OE1_2 %>%
+  slice(-35, -62) %>% 
+  mutate(n_fires = as.numeric(n_fires)) %>% 
+  group_by(study_type) %>%
+  summarise(total_incendios = round(mean(n_fires, na.rm = TRUE), 1))
+
+#cuantos NA's tengo?
+cuantoNA <- data_OE1_2 %>%
+  mutate(n_fires = as.numeric(n_fires)) %>%  
+  summarise(na_n_fires = sum(is.na(n_fires)))
+
+(21/271)*100
 
 ####OE2. VARIABLES Y FACTORES MÁS IMPORTANTES####
-S3_measures <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v3.xlsx",
+S3_measures <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx",
                           sheet = "3_measures")
 S3_measures_MB <- S3_measures %>%
   inner_join(S2_fire_MB, by = "our_id")
@@ -141,11 +153,11 @@ S3_measures_veg <- S3_measures_MB %>%
 
 subcategories_veg <- function (var) {
   
-  stru <- "agdb|weight|thd|tdd|dbh|foliar|length|crown|size|canopy|litter|diamet|height|density|prese|mass|structure|cover|wood|volume|area"
-  abun <- "abund"
-  dive <- "choro|dominan|equitatib|diversity|shannon|brillouin|simpson|eveness|richness|similarity|iap|sef|compo|fugac|allele|heterozig"
-  vefu <- "sequ|storag|elong|mortal|death|serotinity|dead|kill|burn|liv|leaf area|efficienc|assimil|nectar|respro|sprout|germin|viabil|pollen|surviv|time|seed|recruit|produ|regene|stomat|rate|18|13|15|xilo|grow|cone|shoot|new"
-  spre <- "ndvi|evi|fpar|land|nbr|rri|rr|indic|vari|reflectance|band|change|pixel|ndwi|siwsi|^rvi"
+  stru <- "magni|pathl|altit|topol|stand| age|cork|distan|branch|profil|rother|thick|width|agdb|weight|thd|tdd|dbh|foliar|length|crown|size|canopy|litter|diamet|height|density|prese|mass|structure|cover|wood|volume|area"
+  abun <- "abund|occup|pres"
+  dive <- "evenn|choro|dominan|equitatib|diversity|shannon|brillouin|simpson|eveness|richness|similarity|iap|sef|compo|fugac|allele|heterozig"
+  vefu <- "ecos|flux|serot|disper|remain|c/n|transp|photosy|predawn|load|nrest|input|resis|resil|conduc|sequ|storag|carbon|elong|mortal|death|serotinity|dead|kill|burn|liv|leaf area|efficienc|assimil|nectar|respro|sprout|germin|viabil|pollen|surviv|time|seed|recruit|produ|regene|stomat|rate|18|13|15|xilo|grow|cone|shoot|new"
+  spre <- "normali|season|nvi|rfdi|polari|ndvi|evi|fpar|land|nbr|rri|rr|ndre|indic|vari|reflectance|band|change|pixel|ndwi|siwsi|^rvi"
   
   # ^ esto es para indicar que se fija en que el termino esta al principio
   
@@ -177,18 +189,14 @@ V_clasificacion[106, 3] = "structure"
 V_clasificacion[107, 3] = "structure"
 V_clasificacion[115, 3] = "spectral response"
 V_clasificacion[120, 3] = "diversity"
-V_clasificacion[142, 3] = "structure"
 V_clasificacion[186, 3] = "vegetation function"
 V_clasificacion[187, 3] = "vegetation function"
 V_clasificacion[192, 3] = "diversity"
-V_clasificacion[222, 3] = "structure"
-V_clasificacion[223, 3] = "structure"
 V_clasificacion[233, 3] = "diversity"
 V_clasificacion[242, 3] = "structure"
 V_clasificacion[256, 3] = "structure"
 V_clasificacion[257, 3] = "structure"
 V_clasificacion[260, 3] = "structure"   
-V_clasificacion[261, 3] = "structure" 
 V_clasificacion[273, 3] = "spectral response"
 V_clasificacion[301, 3] = "structure"
 V_clasificacion[303, 3] = "structure"
@@ -208,10 +216,40 @@ V_clasificacion[492, 3] = "spectral response"
 V_clasificacion[493, 3] = "spectral response"
 V_clasificacion[497, 3] = "structure"
 V_clasificacion[498, 3] = "structure"
-V_clasificacion[499, 3] = "structure"
+V_clasificacion[499, 3] = "structure"#a partir de aqui añades cambios manuales para los datos que te han pasado
+V_clasificacion[510, 3] = "vegetation function"
+V_clasificacion[532, 3] = "diversity"
+V_clasificacion[533, 3] = "diversity"
+V_clasificacion[548, 3] = "diversity"
+V_clasificacion[620, 3] = "structure"   
+V_clasificacion[644, 3] = "diversity"
+V_clasificacion[682, 3] = "structure"
+V_clasificacion[684, 3] = "structure"
+V_clasificacion[687, 3] = "diversity"
+V_clasificacion[711, 3] = "structure"
+V_clasificacion[725, 3] = "structure"
+V_clasificacion[726, 3] = "structure"
+V_clasificacion[758, 3] = "diversity"
+V_clasificacion[762, 3] = "structure"
+V_clasificacion[771, 3] = "structure"
+V_clasificacion[784, 3] = "abundance"
+V_clasificacion[820, 3] = "structure"
+V_clasificacion[823, 3] = "abundance"
+V_clasificacion[837, 3] = "vegetation function"
 
 #acuerdate anna si añades mas datos agrupar variables y revisar antes de correr el
 #script de cambios manuales que vayas añadiendo
+
+#pongo bien mis spectral responses para luego reclasificarlos por separado
+V_clasificacion[169, 3] = "spectral response"
+V_clasificacion[791, 3] = "spectral response"
+V_clasificacion[792, 3] = "spectral response"
+V_clasificacion[793, 3] = "spectral response"
+V_clasificacion[794, 3] = "spectral response"
+V_clasificacion[795, 3] = "spectral response"
+V_clasificacion[843, 3] = "spectral response"
+V_clasificacion[844, 3] = "spectral response"
+V_clasificacion[845, 3] = "spectral response"
 
 subtipos_vegetacion <- V_clasificacion %>% 
   filter(variable_type == "vegetation") %>% 
@@ -232,6 +270,30 @@ ggplot(subtipos_vegetacion, aes(x = reorder(response_variable_clean, percentage)
   ) +
   theme_minimal() +
   theme(axis.title.y = element_text(margin = margin(r = 6)))
+
+#ahora, como interpreto variables spectral response?
+spectral_responses <- V_clasificacion %>%
+  filter(response_variable_clean == "spectral response")
+
+SPRE_clasificacion <- spectral_responses %>% 
+  mutate(response_variable_clean2 = case_when(
+    str_detect(tolower(comments), "regeneration|flux") ~ "vegetation function",
+    str_detect(tolower(response_variable), "ndvi|ndwi|ndre|evapotr|flux|recov|disper|nbr|season") ~ "vegetation function",
+    str_detect(tolower(response_variable), "cover|ascend|desce") ~ "structure",
+    variable_subtype %in% c("regeneration", "functional traits", "ecological processes") ~ "vegetation function",
+    variable_subtype == "structure" ~ "structure",
+    variable_subtype == "composition" ~ "composition",
+    TRUE ~ variable_subtype)) %>% 
+    relocate(response_variable_clean2, .before = response_units)
+
+SPRE_clasificacion[14,4] = "structure"
+SPRE_clasificacion[35,4] = "vegetation function"
+SPRE_clasificacion[86,4] = "vegetation function"
+SPRE_clasificacion[92,4] = "composition"
+
+subtipos_spre_veg <- SPRE_clasificacion %>% 
+  group_by(response_variable_clean2) %>% 
+  summarise(percentage = round((n() / nrow(.)) * 100, 1))
 
 #3 primeros subtipos ver variable respuesta más medida (>10%)
 #exporto un excel y lo miro manual
@@ -279,7 +341,7 @@ S_clasificacion[109, 3] = "biological properties"
 S_clasificacion[133, 3] = "hydrological processes"
 S_clasificacion[143, 3] = "hydrological processes"
 S_clasificacion[210, 3] = "physical properties"
-S_clasificacion[240, 3] = "hydrological processes"
+S_clasificacion[240, 3] = "hydrological processes"    #a partir de aqui añades cambios manuales para los datos que te han pasado
 
 subtipos_suelos <- S_clasificacion %>% 
   filter(variable_type == "soil") %>% 
@@ -377,7 +439,7 @@ M_clasificacion[438, 3] = "vegetation traits"
 M_clasificacion[442, 3] = "vegetation traits"
 M_clasificacion[443, 3] = "vegetation traits"
 M_clasificacion[480, 3] = "spatial factors"
-M_clasificacion[518, 3] = "vegetation traits"
+M_clasificacion[518, 3] = "vegetation traits"    #a partir de aqui añades cambios manuales para los datos que te han pasado
 
 #porcentaje de papers que analiza cada tipo de moderador
 total_papers <- n_distinct(M_clasificacion$our_id)
@@ -415,7 +477,7 @@ ggplot(Mods_final, aes(x = reorder(moderator_type_clean, percentage), y = percen
   theme(axis.title.y = element_text(margin = margin(r = 6)))
 
 ####OE3. MAPEAR ESTUDIOS POR PAIS Y CRUZAR CON INCENDIOS####
-S2_fire <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v3.xlsx", 
+S2_fire <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
                        sheet = "2_fire") %>% 
 filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica"))
 
