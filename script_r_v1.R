@@ -136,6 +136,8 @@ S3_measures <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de A
 S3_measures_MB <- S3_measures %>%
   inner_join(S2_fire_MB, by = "our_id")
 
+write_xlsx(S3_measures_MB, "S3_measures_MB.xlsx")
+
 #####OE2.1 Variables respuesta más importantes estudiadas#####
 #qué tipo de variables son las más estudiadas? 
 round(prop.table(table(S3_measures_MB$variable_type)) * 100, 1)
@@ -295,9 +297,9 @@ subtipos_spre_veg <- SPRE_clasificacion %>%
   group_by(response_variable_clean2) %>% 
   summarise(percentage = round((n() / nrow(.)) * 100, 1))
 
-#3 primeros subtipos ver variable respuesta más medida (>10%)
-#exporto un excel y lo miro manual
+#3 primeros subtipos ver variable respuesta más medida, exporto un excel y lo miro manual
 write_xlsx(V_clasificacion, "V_class.xlsx")
+write_xlsx(SPRE_clasificacion, "SPRE_class.xlsx")
 
 ######Suelos######
 S3_measures_soil <- S3_measures_MB %>%
@@ -365,14 +367,17 @@ ggplot(subtipos_suelos, aes(x = reorder(response_variable_clean, percentage), y 
   theme(axis.title.y = element_text(margin = margin(r = 6)))
 
 #3 primeros subtipos ver variables respuesta más medidas (>10%)
-top3 <- tapply(V_clasificacion$response_variable, V_clasificacion$response_variable_clean, function(x) {
-  head(sort(table(x), decreasing = TRUE), 3)   #como hace el recuento si tengo una variabilidad enorme en mis denominaciones? Tal vez mejor hacerlo En Excel al final de todo
-})
+write_xlsx(S_clasificacion, "S_class.xlsx")
 
 #####OE2.2 Moderadores más importantes estudiados#####
 #solo descriptivo para asociar moderador a paper y facilitarme luego la agrupacion de moderadores (consultar papers si es necesario
 #no puedo dar un conteo tipo moderador / paper porque hemos agrupado moderadores, asi que esto es solo descriptivo
-moderators_paper <- S3_measures_MB %>% 
+S3_measures2 <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v3.xlsx",
+                          sheet = "3_measures")  #parte antes de que me pasaran datos
+S3_measures_MB2 <- S3_measures2 %>%
+  inner_join(S2_fire_MB, by = "our_id")
+
+moderators_paper <- S3_measures_MB2 %>% 
   separate_rows(moderator_type, sep = ";") %>% 
   distinct(our_id, moderator_type)  #Elimino filas duplicadas para que solo se quede con los moderadores por our_id (por paper).
 
@@ -439,20 +444,112 @@ M_clasificacion[438, 3] = "vegetation traits"
 M_clasificacion[442, 3] = "vegetation traits"
 M_clasificacion[443, 3] = "vegetation traits"
 M_clasificacion[480, 3] = "spatial factors"
-M_clasificacion[518, 3] = "vegetation traits"    #a partir de aqui añades cambios manuales para los datos que te han pasado
+M_clasificacion[518, 3] = "vegetation traits"    
+
+#lo mismo con los papers que me han pasado
+S3_measures3 <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4_1.xlsx",
+                           sheet = "3_measures")  #solo datos de los otros reviewers, no mios
+S3_measures_MB3 <- S3_measures3 %>%
+  inner_join(S2_fire_MB, by = "our_id")
+
+moderators_colab <- S3_measures_MB3 %>%    
+  separate_rows(moderator_type, sep = ";") %>% 
+  distinct(our_id, moderator_type)
+
+#funcion
+subcategories_mods2 <- function (var) {
+  
+  spat <- "spat|autocov|coord|eucli|surround|spac|distan"
+  fire <- "dama|consup|sever|nbr|intens|freq|recurr|return|fire|ocurr|size|burnt"
+  time <- "tslf|time|year|after|month|date|succe"
+  envi <- "lith|zon|locat|mounta|inclin|habita|environ|landscape type|ecos|orient|elev|rough|hli|slop|curv|altitu|aspec|posit|expos|topogr|bedroc|morpho|site|plot|geo|subcatch"
+  sowa <- "content|activi|microb|elect|silt|clay|sand|ground|edaph|mycorr|runo|ash|bare gr|fung|bact|organ|^ph|moist|soil|water|stream|rock|^som|^toc|^n|^c/n|^p|^k|^ca|nutr|permea|humi|avail|^som|^toc"
+  clim <- "spei|win|monthly|radiat|^air|^vpd|^rain|clim|droug|aridit|season|thorn|preci|tempe|rainfall|rain"
+  vege <- "green|compet|neigh|stump|respr|pre-veg|bryop|moss|leaf|defol|ndvi|stem|herb|fun|litter|bark|shrub|sapling|wood|forb|gramin|trunk|canop|specie|densi|richn|veget|cover|fores|plant|heigh|dbh|diam|basal|tree|stand age|^age|\\bage\\b|life|regen|recov|seed|cone"
+  huma <- "harvesti|exploit|lulc|interve|manag|treatm|logg|thinn|land use|use|prescrib|pile|human"
+  
+  varlower <- str_to_lower(var) #pasar a minusculas
+  
+  case_when(     #orden importa: lo q tiene menos opciones primero = lo prioritario
+    str_detect(varlower, spat) ~ "spatial factors",
+    str_detect(varlower, clim) ~ "climate",
+    str_detect(varlower, time) ~ "time since fire",
+    str_detect(varlower, envi) ~ "environmental and site conditions",
+    str_detect(varlower, huma) ~ "use and human management",
+    str_detect(varlower, sowa) ~ "soil traits and water availability",
+    str_detect(varlower, fire) ~ "fire regime and traits",
+    str_detect(varlower, vege) ~ "vegetation traits",
+    
+    varlower %in% c("-", "NA", "NaN") ~ "none",    #NA's se llamen none
+    TRUE~var)
+}
+
+#aplico a los datos de las otras reviewers
+M_clasificacion2 <- moderators_colab %>% 
+  mutate(across(
+    .cols = c(moderator_type), 
+    .fns = ~ subcategories_mods2(.x), 
+    .names = "{.col}_clean"
+  ))
+
+#cambios manuales
+M_clasificacion2[7,3] = "vegetation traits"
+M_clasificacion2[9,3] = "soil traits and water availability"
+M_clasificacion2[38,3] = "fire regime and traits"
+M_clasificacion2[45,3] = "soil traits and water availability"
+M_clasificacion2[73,3] = "time since fire"
+M_clasificacion2[89,3] = "vegetation traits"
+M_clasificacion2[93,3] = "leaf mesh size"
+M_clasificacion2[105,3] = "vegetation traits"
+M_clasificacion2[106,3] = "vegetation traits"
+M_clasificacion2[140,3] = "environmental and site conditions"
+M_clasificacion2[143,3] = "vegetation traits"
+M_clasificacion2[152,3] = "environmental and site conditions"
+M_clasificacion2[161,3] = "vegetation traits"
+M_clasificacion2[190,3] = "vegetation traits"
+M_clasificacion2[384,3] = "vegetation traits"
+M_clasificacion2[207,3] = "climate"
+M_clasificacion2[233,3] = "fire regime and traits"
+M_clasificacion2[239,3] = "soil traits and water availability"
+M_clasificacion2[255,3] = "vegetation traits"
+M_clasificacion2[258,3] = "vegetation traits"
+M_clasificacion2[259,3] = "vegetation traits"
+M_clasificacion2[273,3] = "vegetation traits"
+M_clasificacion2[290,3] = "vegetation traits"
+M_clasificacion2[304,3] = "vegetation traits"
+M_clasificacion2[305,3] = "vegetation traits"
+M_clasificacion2[309,3] = "vegetation traits"
+M_clasificacion2[310,3] = "vegetation traits"
+M_clasificacion2[314,3] = "vegetation traits"
+M_clasificacion2[318,3] = "vegetation traits"
+M_clasificacion2[340,3] = "vegetation traits"
+M_clasificacion2[404,3] = "vegetation traits"
+M_clasificacion2[453,3] = "soil traits and water availability"
+M_clasificacion2[466,3] = "use and human management"
+M_clasificacion2[495,3] = "soil traits and water availability"
+M_clasificacion2[523,3] = "vegetation traits"
+M_clasificacion2[548,3] = "vegetation traits"
+M_clasificacion2[557,3] = "nutritional mode"
+M_clasificacion2[559,3] = "vegetation traits"
+M_clasificacion2[562,3] = "vegetation traits"
+M_clasificacion2[564,3] = "fire regime and traits"
+M_clasificacion2[565,3] = "vegetation traits"
+
+#union de bases de datos mia y reviewers
+M_classTotal <- bind_rows(M_clasificacion, M_clasificacion2)
 
 #porcentaje de papers que analiza cada tipo de moderador
-total_papers <- n_distinct(M_clasificacion$our_id)
-subtipo_mods <- M_clasificacion %>%
+total_papers <- n_distinct(M_classTotal$our_id)
+subtipo_mods <- M_classTotal %>%
   distinct(our_id, moderator_type_clean) %>% 
   filter(!is.na(moderator_type_clean) & moderator_type_clean != "NA") %>%    #elimina vacios y donde pone NA
   count(moderator_type_clean, name = "num_papers") %>% 
   mutate(percentage = round((num_papers/total_papers)*100, 1)) %>% 
   arrange(desc(percentage)) #desc = orden descendente de mayor a menor
 
-Mods_final <- subtipo_mods %>% 
+Mods_final <- subtipo_mods %>%  
   slice(-9) %>% #elimino una fila vacia, no habia moderadores
-  mutate(moderator_type_clean = if_else(percentage < 1, "others", moderator_type_clean)) %>%  #moderadores < 1% a "others"
+  mutate(moderator_type_clean = if_else(percentage < 1 | moderator_type_clean == "spatial factors", "others", moderator_type_clean)) %>%  #moderadores < 1% a "others"
   group_by(moderator_type_clean) %>% 
   summarise(num_papers = sum(num_papers),
             percentage = sum(percentage)) %>%
@@ -470,8 +567,8 @@ ggplot(Mods_final, aes(x = reorder(moderator_type_clean, percentage), y = percen
                               "climate" = "clima", "spatial factors" = "distribucion espacial", "others" = "otros")) +
   coord_flip() +
   labs(
-    x = "Tipo de moderador",
-    y = "Porcentaje (%)"
+    x = "Tipos de Variables explicativas",
+    y = "Porcentaje de estudios (%)"
   ) +
   theme_minimal() +
   theme(axis.title.y = element_text(margin = margin(r = 6)))
