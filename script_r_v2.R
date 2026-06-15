@@ -554,9 +554,10 @@ M_clasificacion2 <- moderators_colab %>%
       TRUE ~ moderator_type_clean)) 
 
 #union de bases de datos mia y reviewers
-M_classTotal <- bind_rows(M_clasificacion, M_clasificacion2)
-#unir clima con condiciones ambientales y de sitio
-
+M_classTotal <- bind_rows(M_clasificacion, M_clasificacion2) %>% 
+  mutate(moderator_type_clean = if_else(moderator_type_clean == "climate",
+                                        "environmental and site conditions", #que clima sea condiciones ambientales y de sitio
+                                        moderator_type_clean))
 
 #porcentaje de papers que analiza cada tipo de moderador
 total_papers <- n_distinct(M_classTotal$our_id)
@@ -567,8 +568,8 @@ subtipo_mods <- M_classTotal %>%
   mutate(percentage = round((num_papers/total_papers)*100, 1)) %>% 
   arrange(desc(percentage)) #desc = orden descendente de mayor a menor
 
-Mods_final <- subtipo_mods %>%  
-  slice(-9) %>% #elimino una fila vacia, no habia moderadores
+Mods_final2 <- subtipo_mods %>%
+  slice(-8,-9) %>%  #elimino filas vacias, no habia moderadores
   mutate(moderator_type_clean = if_else(percentage < 1 | moderator_type_clean == "spatial factors", "others", moderator_type_clean)) %>%  #moderadores < 1% a "others"
   group_by(moderator_type_clean) %>% 
   summarise(num_papers = sum(num_papers),
@@ -584,7 +585,7 @@ ggplot(Mods_final, aes(x = reorder(moderator_type_clean, percentage), y = percen
                               "environmental and site conditions" = "Condiciones ambientales y del sitio",
                               "use and human management" = "Gestión y uso humano",
                               "soil traits and water availability" = "Características del suelo y disponibilidad de agua",
-                              "climate" = "Clima", "spatial factors" = "Distribución espacial", "others" = "Otras")) +
+                              "spatial factors" = "Distribución espacial", "others" = "Otras")) +
   coord_flip() +
   labs(
     x = "Tipos de Variables explicativas",
@@ -650,13 +651,15 @@ studies_08_26 <- data_OE1_1 %>%
   summarise(num_estudios08_26 = n())
 
 #cruzo nº incendios con nº estudios (2008 - 2026)
-study_fire_cross <- left_join(n_fires_MB, studies_08_26, by = "country")
-
+study_fire_cross <- left_join(n_fires_MB, studies_08_26, by = "country") %>% 
+  filter(!is.na(num_estudios08_26)) %>% 
+  mutate(porc_corr = (num_estudios08_26 / num_incendios08_26)*100)
+  
 #mapa cruce incendios - estudios 2008 - 2026
 crossmap_08_26 <- left_join(mbasis_world, study_fire_cross, by = c("name" = "country"))
 ggplot(data = crossmap_08_26) +
   geom_sf(aes(fill = num_estudios08_26), color = "black", linewidth = 0.2) +
-  geom_sf_label(aes(label = paste0("🔥", num_incendios08_26)),
+  geom_sf_label(aes(label = paste0(num_incendios08_26)),
     data = . %>% filter(!is.na(num_incendios08_26)), 
     fill = "white",
     color = "black",
