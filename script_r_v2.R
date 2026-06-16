@@ -637,6 +637,9 @@ ggplot(data = mapa_mb_w) +
 #EFIS NUMBER OF FIRES (Start date: 01/10/2008, End date: 11/06/2026)
 fires_EFIS <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Distribucion geografica/EFIS_data/fires_EFIS.xlsx")
 n_fires_MB <- fires_EFIS %>%
+  select(-sclerophillous_vegetation_percent, -transitional_vegetation_percent, -other_natural_percent,
+         -agriculture_percent, -artificial_percent, -other_percent, -natura2k_percent) %>% 
+  filter(broadleaved_forest_percent > 0 | coniferous_forest_percent > 0 | mixed_forest_percent > 0) %>% 
   group_by(country) %>% 
   summarise(
     num_incendios08_26 = n_distinct(id)) %>% 
@@ -652,8 +655,9 @@ studies_08_26 <- data_OE1_1 %>%
 
 #cruzo nº incendios con nº estudios (2008 - 2026)
 study_fire_cross <- left_join(n_fires_MB, studies_08_26, by = "country") %>% 
-  filter(!is.na(num_estudios08_26)) %>% 
-  mutate(porc_corr = (num_estudios08_26 / num_incendios08_26)*100)
+  filter(!is.na(num_estudios08_26))
+
+write_xlsx(study_fire_cross, "cruce_st_fires_08_26.xlsx")
   
 #mapa cruce incendios - estudios 2008 - 2026
 crossmap_08_26 <- left_join(mbasis_world, study_fire_cross, by = c("name" = "country"))
@@ -674,3 +678,32 @@ ggplot(data = crossmap_08_26) +
     x = "Longitud",
     y = "Latitud",
   )
+
+######Severidad, bosque afectado y manejo#####
+S2_severity <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
+                      sheet = "2_fire") %>% 
+  filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica")) %>%
+  distinct(our_id, fire_id, .keep_all = TRUE) %>% 
+  mutate(severity = if_else(severity %in% c("low;medium;high", 
+                                             "low;moderate;high", 
+                                             "medium;high;low"), "all", severity)) %>% 
+  mutate(severity = gsub("medium", "moderate", severity)) %>% 
+  group_by(severity) %>%
+  summarise(total = n()) %>% 
+  arrange(desc(total)) %>% 
+  mutate(porcentaje = round((total / sum(total)) * 100, 2))
+
+S2_foresttype <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
+                                           sheet = "2_fire") %>% 
+  filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica")) %>% 
+  distinct(our_id, fire_id, forest_type, .keep_all = TRUE) %>% 
+  group_by(forest_type) %>% 
+  summarise(total = n())
+
+S2_postfireMG <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
+                            sheet = "2_fire") %>% 
+  filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica")) %>% 
+  distinct(our_id, fire_id, postfire_management, .keep_all = TRUE) %>% 
+  group_by(postfire_management) %>%
+  mutate(postfire_management = na_if(postfire_management, "NA")) %>%
+  summarise(total = n())
