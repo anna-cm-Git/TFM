@@ -703,7 +703,9 @@ S2_foresttype <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de
 S2_postfireMG <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
                             sheet = "2_fire") %>% 
   filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica")) %>% 
-  distinct(our_id, fire_id, postfire_management, .keep_all = TRUE) %>% 
+  distinct(our_id, fire_id, postfire_management, .keep_all = TRUE) %>%
+  mutate(postfire_management = gsub("; ", ";", postfire_management)) %>%
   group_by(postfire_management) %>%
   mutate(postfire_management = na_if(postfire_management, "NA")) %>%
-  summarise(total = n())
+  summarise(total = n()) %>% 
+  mutate(porcentaje = round((total / sum(total)) * 100, 2))
