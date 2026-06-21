@@ -366,7 +366,7 @@ subtipos_suelos2 <- S_clasificacion %>%
   arrange(desc(percentage))
 
 #representacion grafica
-ggplot(subtipos_suelos2, aes(x = reorder(response_variable_clean, percentage), y = percentage)) +
+ggplot(subtipos_suelos, aes(x = reorder(response_variable_clean, percentage), y = percentage)) +
   geom_bar(stat = "identity", fill = "brown") +
   scale_x_discrete(limits = levels(reorder(subtipos_suelos$response_variable_clean, subtipos_suelos$percentage)),
                    labels = c("physical properties" = "Propiedades físicas", "chemical properties" = "Propiedades químicas",
@@ -577,10 +577,10 @@ Mods_final2 <- subtipo_mods %>%
   arrange(desc(percentage))
 
 #representacion grafica
-ggplot(Mods_final, aes(x = reorder(moderator_type_clean, percentage), y = percentage)) +
+ggplot(Mods_final2, aes(x = reorder(moderator_type_clean, percentage), y = percentage)) +
   geom_bar(stat = "identity", fill = "blue") +
-  scale_x_discrete(limits = levels(reorder(Mods_final$moderator_type_clean, Mods_final$percentage)),
-                   labels = c("time since fire" = "Tiempo desde el incendio", "vegetation traits" = "Atributos de la vegetación",
+  scale_x_discrete(limits = levels(reorder(Mods_final2$moderator_type_clean, Mods_final2$percentage)),
+                   labels = c("time since fire" = "Tiempo desde el incendio", "vegetation traits" = "Características de la vegetación",
                               "fire regime and traits" = "Características y regímen del incendio",
                               "environmental and site conditions" = "Condiciones ambientales y del sitio",
                               "use and human management" = "Gestión y uso humano",
@@ -595,18 +595,9 @@ ggplot(Mods_final, aes(x = reorder(moderator_type_clean, percentage), y = percen
   theme(axis.title.y = element_text(margin = margin(r = 6)))
 
 ####OE3. MAPEAR ESTUDIOS POR PAIS Y CRUZAR CON INCENDIOS####
-S2_fire_OE3_MB <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
-                       sheet = "2_fire") %>% 
-filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica"))
-
-#exclude fire_id NA's, mantain "all", and fire_id 1, 2, 3, etc. without duplicates 1, 1,...
-nfires_country <- S2_fire_OE3_MB %>%
-  filter(!is.na(fire_id)) %>%   #esclude NA's from fire_id (no info.)
-  distinct(country, fire_id, .keep_all = TRUE) %>% #keep "all" and eliminate duplicates in fire_id
-  group_by(country) %>%
-  summarise(
-    n_fires = n()
-  )
+studies_90_26 <- data_OE1_1 %>%
+  group_by(country) %>% 
+  summarise(n_studies = n())
 
 world <- ne_countries(scale = "medium", returnclass = "sf")   #cargo paises del mundo
 mbasis <- c("Algeria", "France", "Greece", "Israel","Italy", "Morocco","Portugal",
@@ -617,12 +608,12 @@ mbasis <- c("Algeria", "France", "Greece", "Israel","Italy", "Morocco","Portugal
 
 mbasis_world <- world %>% filter(name %in% mbasis)    #defino y filtro por mis paises
 
-mapa_mb_w <- left_join(mbasis_world, nfires_country, by = c("name" = "country"))
+mapa_mb_w <- left_join(mbasis_world, studies_90_26, by = c("name" = "country"))
 
 #DIBUIXAR EL MAPA
 ggplot(data = mapa_mb_w) +
-  geom_sf(aes(fill = n_fires), color = "black", linewidth = 0.2) +
-  geom_sf_label(aes(label = n_fires),
+  geom_sf(aes(fill = n_studies), color = "black", linewidth = 0.2) +
+  geom_sf_label(aes(label = n_studies),
                 fill = "white", color = "black", size = 3.5,
                 fontface = "bold", label.size = 0.2) +
   scale_fill_viridis_c(option = "magma", na.value = "grey90", direction = -1) +
