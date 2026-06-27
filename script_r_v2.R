@@ -358,13 +358,6 @@ subtipos_suelos <- S_clasificacion %>%
   group_by(response_variable_clean) %>% 
   summarise(percentage = round((n() / nrow(.)) * 100, 1))
 
-subtipos_suelos2 <- S_clasificacion %>% 
-  filter(variable_type == "soil") %>% 
-  distinct(our_id, response_variable_clean) %>% 
-  group_by(response_variable_clean) %>% 
-  summarise(percentage = round((n() / nrow(.)) * 100, 1)) %>%   #sin duplicados para tener variables agrupadas
-  arrange(desc(percentage))
-
 #representacion grafica
 ggplot(subtipos_suelos, aes(x = reorder(response_variable_clean, percentage), y = percentage)) +
   geom_bar(stat = "identity", fill = "brown") +
@@ -582,7 +575,7 @@ ggplot(Mods_final2, aes(x = reorder(moderator_type_clean, percentage), y = perce
   scale_x_discrete(limits = levels(reorder(Mods_final2$moderator_type_clean, Mods_final2$percentage)),
                    labels = c("time since fire" = "Tiempo desde el incendio", "vegetation traits" = "Características de la vegetación",
                               "fire regime and traits" = "Características y regímen del incendio",
-                              "environmental and site conditions" = "Condiciones ambientales y del sitio",
+                              "environmental and site conditions" = "Clima, fisiografia, paisaje y sitio",
                               "use and human management" = "Gestión y uso humano",
                               "soil traits and water availability" = "Características del suelo y disponibilidad de agua",
                               "spatial factors" = "Distribución espacial", "others" = "Otras")) +
