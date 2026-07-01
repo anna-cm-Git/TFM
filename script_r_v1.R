@@ -8,6 +8,9 @@ library(sf)
 library(rnaturalearth)
 library(rnaturalearthdata)
 
+citation()
+citation("rnaturalearthdata")
+
 ####OE1. SINTESIS LITERATURA CIENTIFICA####
 S1_study <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
                                       sheet = "1_study")
@@ -82,10 +85,9 @@ solo_vegetacion <- subset(data_OE1_2, !is.na(study_level) & study_level != "NA")
 relacion_ST_SL <- xtabs(~ study_level + study_type, data = solo_vegetacion)
 relacion_ST_SL
 global <- prop.table(relacion_ST_SL) * 100     # % respecto el total de estudios
+global
 portipoestudio <- prop.table(relacion_ST_SL, margin = 2) * 100   # % respecto el total de cada tipo de estudio
 portipoestudio
-write.csv2(global, "OE1.2_global.csv")
-write.csv2(portipoestudio, "OE1.2_portipoestudio.csv")
 
 ##### OE1.3 Asociación entre study_type y nº incendios: el tipo de estudio varia en relación al nº de incendios estudiados? #####
 ST_nfires <- data_OE1_1 %>%                      #aqui con paleoecologia 
@@ -238,6 +240,8 @@ V_clasificacion[784, 3] = "abundance"
 V_clasificacion[820, 3] = "structure"
 V_clasificacion[823, 3] = "abundance"
 V_clasificacion[837, 3] = "vegetation function"
+V_clasificacion[877, 3] = "spectral response"
+V_clasificacion[882, 3] = "diversity"
 
 #acuerdate anna si añades mas datos agrupar variables y revisar antes de correr el
 #script de cambios manuales que vayas añadiendo
@@ -262,11 +266,11 @@ subtipos_vegetacion <- V_clasificacion %>%
 ggplot(subtipos_vegetacion, aes(x = reorder(response_variable_clean, percentage), y = percentage)) +
   geom_bar(stat = "identity", fill = "green") +
   scale_x_discrete(limits = levels(reorder(subtipos_vegetacion$response_variable_clean, subtipos_vegetacion$percentage)),
-                   labels = c("abundance" = "abundancia", "diversity" = "diversidad", "spectral response" = "respuesta espectral",
-                   "structure" = "estructura", "vegetation function" = "función de la vegetación")) +
+                   labels = c("abundance" = "Abundancia", "diversity" = "Diversidad", "spectral response" = "Respuesta espectral",
+                   "structure" = "Estructura", "vegetation function" = "Función de la vegetación")) +
   coord_flip() +
   labs(
-    tag = "a) vegetación",
+    tag = "a)",
     x = "Subtipo de variable",
     y = "Porcentaje (%)"
   ) +
@@ -302,18 +306,20 @@ write_xlsx(V_clasificacion, "V_class.xlsx")
 write_xlsx(SPRE_clasificacion, "SPRE_class.xlsx")
 
 ######Suelos######
-S3_measures_soil <- S3_measures_MB %>%
+S3_measuressuelo <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx",
+                          sheet = "3_measures")
+
+S3_measures_soil <- S3_measuressuelo %>%
   filter(variable_type == "soil")
 
 #categorias: propiedades físicas, químicas, y biológicas. Procesos ecosistémicos e hidrológicos.
 subcategories_soil <- function (var) {
   
-  phys <- "diam|textur|sand|silt|clay|compact|bulk|porosity|infiltr|humidit|water|moist|temperat|hydraulic conduct|stab"
-  chem <- "total|ph|electrical|cation|extract|nutrient|^som|labile|avail|exchang|organic|carbon|^n|nitrog|c/n|
-  ^soc|^toc|^na|sodiu|^c|^p|^mg|magnes|^ca|^k|nh4|no2|humic|fluv|n:p"
-  biol <- "plfa|micro|bacter|dna|enzymat|respirat|biomass|invertebr|diversit|fung|activ|abund|rich|shann|qbs|gluco|aryl"
+  phys <- "osmo|^dry|field|mecha|emiss|humificatio|partic|ash|bare|cover|diam|textur|sand|silt|clay|compact|bulk|porosity|infiltr|humidit|water|moist|temperat|hydraulic conduct|stab"
+  chem <- "polys|lignin|aromat|mangan|zinc|copper|lead|cobalt|arsen|mercu|ammon|chain|molec|iron|total|ph|electrical|cation|extract|nutrient|^som|labile|avail|exchang|organic|carbon|^n|nitrog|c/n|^al|^mn|^fe|^zn|^cu|\\bb\\b|^cr|^si|^s|^soc|^toc|^na|sodiu|^c|^p|^mg|magnes|^ca|^k|nh4|no2|humic|fluv|n:p"
+  biol <- "colon|presen|sphoro|eukar|prokar|mycor|mineraliza|wood|popul|cellul|invert|phosphatase|metabo|ureas|litter|glomal|plfa|micro|bacter|dna|enzymat|respirat|biomass|invertebr|diversit|simpson|fung|activ|abund|rich|shann|qbs|gluco|aryl"
   ecos <- "cycl|decompo|flux|multi"
-  hidr <- "run|eros|yield|sedim|loss"
+  hidr <- "connec|convergenc|flat|ls-|pond|flow|absolu|rough|run|eros|yield|sedim|loss"
 
   varlower <- str_to_lower(var) #pasar a minusculas
   
@@ -323,7 +329,8 @@ subcategories_soil <- function (var) {
     str_detect(varlower, biol) ~ "biological properties",
     str_detect(varlower, phys) ~ "physical properties",
     str_detect(varlower, chem) ~ "chemical properties",
-    varlower %in% c("-", "NA", "NaN") ~ "none") #NA's se llamen none)    
+    varlower %in% c("-", "NA", "NaN") ~ "none",
+    TRUE ~ var) #NA's se llamen none)    
   #me deja las que no clasifica con el nombre original                 
 }
 
@@ -334,32 +341,56 @@ S_clasificacion <- S3_measures_soil %>%
     .fns = ~ subcategories_soil(.x), 
     .names = "{.col}_clean"
     )) %>% 
-  relocate(response_variable_clean, .before = response_units)
-
-#cambios manuales
-S_clasificacion[27, 3] = "ecosystem processes"
-S_clasificacion[31, 3] = "hydrological processes"
-S_clasificacion[109, 3] = "biological properties"
-S_clasificacion[133, 3] = "hydrological processes"
-S_clasificacion[143, 3] = "hydrological processes"
-S_clasificacion[210, 3] = "physical properties"
-S_clasificacion[240, 3] = "hydrological processes"    #a partir de aqui añades cambios manuales para los datos que te han pasado
+  relocate(response_variable_clean, .before = response_units) %>% 
+  mutate(             #cambios manuales para variables mal clasificadas
+    response_variable_clean = case_when(
+      our_id == 52 & response_variable == "forest floor standing weight" ~ "ecosystem processes",
+      our_id == 65 & response_variable == "Titanium (Ti) and Zirconium (Zr)" ~ "hydrological processes",
+      our_id == 169 & response_variable == "mineralizing C capacity (index)" ~ "ecosystem processes",
+      our_id == 169 & response_variable == "C descomposition efficiency (index)" ~ "biological properties",  
+      our_id == 388 & response_variable == "AIC-SSY relationship" ~ "hydrological processes", 
+      our_id == 508 & response_variable == "Microaggregate size distribution" ~ "physical properties",    
+      our_id == 406 & response_variable == "n-Fatty acid ratio" ~ "biological properties",  
+      our_id == 406 & response_variable == "n-alkane ratio" ~ "biological properties",  
+      our_id == 112 & response_variable == "Soil Quality Index (SQI)" ~ "soil quality index",     
+      our_id == 228 & response_variable == "PCA.Aromatic non-specific compounds (relative abundance in topsoil)" ~ "chemical properties",  
+      our_id == 228 & response_variable == "PCA.N-compounds (relative abundance in topsoil)" ~ "chemical properties",   
+      our_id == 228 & response_variable == "PCA.Lignin-derived compounds (relative abundance in topsoil)" ~ "chemical properties",  
+      our_id == 228 & response_variable == "PCA.Polysaccharide-derived compounds (relative abundance in topsoil)" ~ "chemical properties",  
+      our_id == 228 & response_variable == "PCA.Hydroaromatic steroids (relative abundance in topsoil" ~ "chemical properties",    
+      our_id == 162 & response_variable == "Ash" ~ "biological properties",  
+      our_id == 223  & response_variable == "Needle cover" ~ "chemical properties", 
+      our_id == 324  & response_variable == "Cover of leaves and thin branches < 2 cm (Lcov)" ~ "biological properties", 
+      our_id == 324  & response_variable == "Cover of lying necromass > 2 cm (Ncov)" ~ "biological properties", 
+      our_id == 361 & response_variable == "Specific UV Absorbance" ~ "physical properties",    
+      our_id == 428 & response_variable == "water holding capacity" ~ "chemical properties",   
+      our_id == 428 & response_variable == "Bulk chemical composition (C types)" ~ "chemical properties",   
+      our_id == 815 & response_variable == "Soil Quality Index (SQI)" ~ "soil quality index",     
+             TRUE ~ response_variable_clean 
+    ))
 
 subtipos_suelos <- S_clasificacion %>% 
   filter(variable_type == "soil") %>% 
   group_by(response_variable_clean) %>% 
   summarise(percentage = round((n() / nrow(.)) * 100, 1))
 
+subtipos_suelos2 <- S_clasificacion %>% 
+  filter(variable_type == "soil") %>% 
+  distinct(our_id, response_variable_clean) %>% 
+  group_by(response_variable_clean) %>% 
+  summarise(percentage = round((n() / nrow(.)) * 100, 1)) %>%   #sin duplicados
+  arrange(desc(percentage))
+
 #representacion grafica
-ggplot(subtipos_suelos, aes(x = reorder(response_variable_clean, percentage), y = percentage)) +
+ggplot(subtipos_suelos2, aes(x = reorder(response_variable_clean, percentage), y = percentage)) +
   geom_bar(stat = "identity", fill = "brown") +
   scale_x_discrete(limits = levels(reorder(subtipos_suelos$response_variable_clean, subtipos_suelos$percentage)),
-                   labels = c("physical properties" = "propiedades físicas", "chemical properties" = "propiedades químicas",
-                              "biological properties" = "propiedades biologicas", "ecosystem processes = procesos ecosistémicos",
-                              "hydrological processes" = "procesos hidrológicos")) +
+                   labels = c("physical properties" = "Propiedades físicas", "chemical properties" = "Propiedades químicas",
+                              "biological properties" = "Propiedades biologicas", "ecosystem processes" = "Procesos ecosistémicos",
+                              "hydrological processes" = "Procesos hidrológicos", "soil quality index" = "Calidad del suelo")) +
   coord_flip() +
   labs(
-    tag = "b) suelos",
+    tag = "b)",
     x = "Subtipo de variable",
     y = "Porcentaje (%)"
   ) +
@@ -560,11 +591,11 @@ ggplot(Mods_final, aes(x = reorder(moderator_type_clean, percentage), y = percen
   geom_bar(stat = "identity", fill = "blue") +
   scale_x_discrete(limits = levels(reorder(Mods_final$moderator_type_clean, Mods_final$percentage)),
                    labels = c("time since fire" = "tiempo desde el incendio", "vegetation traits" = "atributos de la vegetación",
-                              "fire regime and traits" = "caracteristicas y regimen del incendio",
+                              "fire regime and traits" = "características y regímen del incendio",
                               "environmental and site conditions" = "condiciones ambientales y del sitio",
-                              "use and human management" = "uso y gestion antropica",
-                              "soil traits and water availability" = "caracteristicas del suelo y disponibilidad de agua",
-                              "climate" = "clima", "spatial factors" = "distribucion espacial", "others" = "otros")) +
+                              "use and human management" = "uso y gestión humana",
+                              "soil traits and water availability" = "características del suelo y disponibilidad de agua",
+                              "climate" = "clima", "spatial factors" = "distribución espacial", "others" = "otras")) +
   coord_flip() +
   labs(
     x = "Tipos de Variables explicativas",
@@ -574,12 +605,12 @@ ggplot(Mods_final, aes(x = reorder(moderator_type_clean, percentage), y = percen
   theme(axis.title.y = element_text(margin = margin(r = 6)))
 
 ####OE3. MAPEAR ESTUDIOS POR PAIS Y CRUZAR CON INCENDIOS####
-S2_fire <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
+S2_fire_OE3_MB <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
                        sheet = "2_fire") %>% 
 filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica"))
 
 #exclude fire_id NA's, mantain "all", and fire_id 1, 2, 3, etc. without duplicates 1, 1,...
-nfires_country <- S2_fire %>%
+nfires_country <- S2_fire_OE3_MB %>%
   filter(!is.na(fire_id)) %>%   #esclude NA's from fire_id (no info.)
   distinct(country, fire_id, .keep_all = TRUE) %>% #keep "all" and eliminate duplicates in fire_id
   group_by(country) %>%
@@ -588,15 +619,17 @@ nfires_country <- S2_fire %>%
   )
 
 world <- ne_countries(scale = "medium", returnclass = "sf")   #cargo paises del mundo
-mbasis <- c("Algeria", "France", "Greece", "Israel",
-                   "Italy", "Morocco",
-                   "Portugal", "Spain", "Turkey")
+mbasis <- c("Algeria", "France", "Greece", "Israel","Italy", "Morocco","Portugal",
+            "Spain", "Turkey", "Albania", "Bosnia and Herzegovina","Bulgaria",
+            "Croatia", "Egypt", "Iraq", "Kosovo", "Lebanon", "Libya","Macedonia",
+            "Malta", "Montenegro", "Palestina", "Serbia", "Slovenia","Syria",
+            "Tunisia")
 
 mbasis_world <- world %>% filter(name %in% mbasis)    #defino y filtro por mis paises
 
 mapa_mb_w <- left_join(mbasis_world, nfires_country, by = c("name" = "country"))
 
-# 4. DIBUIXAR EL MAPA
+#DIBUIXAR EL MAPA
 ggplot(data = mapa_mb_w) +
   geom_sf(aes(fill = n_fires), color = "black", linewidth = 0.2) +
   geom_sf_label(aes(label = n_fires),
@@ -606,8 +639,46 @@ ggplot(data = mapa_mb_w) +
   coord_sf(xlim = c(-15, 40), ylim = c(25, 50), expand = FALSE) +
   theme_minimal() +
   labs(
-    title = "Estudios de recuperación postincendio por país",
     fill = "Nº estudios",
     x = "Longitud",
     y = "Latitud"
+  )
+
+#EFIS NUMBER OF FIRES (Start date: 01/10/2008, End date: 11/06/2026)
+fires_EFIS <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Distribucion geografica/EFIS_data/fires_EFIS.xlsx")
+n_fires_MB <- fires_EFIS %>%
+  group_by(country) %>% 
+  summarise(
+    num_incendios08_26 = n_distinct(id)) %>% 
+  arrange(desc(num_incendios08_26))
+
+#CROSS WITH STUDIES NUMBER
+#nº estudios del 2008 al 2026   <-- revisar esto y pillar período exacto o comentarlo en la discusión
+studies_08_26 <- data_OE1_1 %>%
+  filter(Year >= 2008,
+         Year <= 2026) %>% 
+  group_by(country) %>% 
+  summarise(num_estudios08_26 = n())
+
+#cruzo nº incendios con nº estudios (2008 - 2026)
+study_fire_cross <- left_join(n_fires_MB, studies_08_26, by = "country")
+
+#mapa cruce incendios - estudios 2008 - 2026
+crossmap_08_26 <- left_join(mbasis_world, study_fire_cross, by = c("name" = "country"))
+ggplot(data = crossmap_08_26) +
+  geom_sf(aes(fill = num_estudios08_26), color = "black", linewidth = 0.2) +
+  geom_sf_label(aes(label = paste0("🔥", num_incendios08_26)),
+    data = . %>% filter(!is.na(num_incendios08_26)), 
+    fill = "white",
+    color = "black",
+    size = 2.8,
+    fontface = "bold",
+    label.size = 0.2) +
+  scale_fill_viridis_c(option = "magma", na.value = "grey90", direction = -1) +
+  coord_sf(xlim = c(-15, 40), ylim = c(25, 50), expand = FALSE) +
+  theme_minimal() +
+  labs(
+    fill = "Nº estudios",
+    x = "Longitud",
+    y = "Latitud",
   )

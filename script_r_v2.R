@@ -86,8 +86,6 @@ relacion_ST_SL <- xtabs(~ study_level + study_type, data = solo_vegetacion)
 relacion_ST_SL
 global <- prop.table(relacion_ST_SL) * 100     # % respecto el total de estudios
 global
-portipoestudio <- prop.table(relacion_ST_SL, margin = 2) * 100   # % respecto el total de cada tipo de estudio
-portipoestudio
 
 ##### OE1.3 Asociación entre study_type y nº incendios: el tipo de estudio varia en relación al nº de incendios estudiados? #####
 ST_nfires <- data_OE1_1 %>%                      #aqui con paleoecologia 
@@ -137,8 +135,6 @@ S3_measures <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de A
                           sheet = "3_measures")
 S3_measures_MB <- S3_measures %>%
   inner_join(S2_fire_MB, by = "our_id")
-
-write_xlsx(S3_measures_MB, "S3_measures_MB.xlsx")
 
 #####OE2.1 Variables respuesta más importantes estudiadas#####
 #qué tipo de variables son las más estudiadas? 
@@ -262,8 +258,6 @@ V_clasificacion <- S3_measures_veg %>%
       our_id == 1018 & response_variable == "Tree cover" ~ "spectral response",
       TRUE ~ response_variable_clean 
     ))
-
-write_xlsx(V_clasificacion, "V_class_2.xlsx")
 
 subtipos_vegetacion <- V_clasificacion %>% 
   filter(variable_type == "vegetation") %>% 
