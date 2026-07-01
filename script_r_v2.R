@@ -12,9 +12,9 @@ citation()
 citation("rnaturalearthdata")
 
 ####OE1. SINTESIS LITERATURA CIENTIFICA####
-S1_study <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
-                                      sheet = "1_study")
-S2_fire <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
+S1_study <- read_excel("datos/Data_treatment_v4.xlsx", 
+                       sheet = "1_study")
+S2_fire <- read_excel("datos/Data_treatment_v4.xlsx", 
                       sheet = "2_fire")
 S2_fire_MB <- S2_fire %>%            #MB indica que es la tabla de datos solo con paises de la Mediterranean Basis
   select(our_id, country) %>% 
@@ -25,7 +25,7 @@ S1_study_MB <- S1_study %>%
   inner_join(S2_fire_MB, by = "our_id")
 
 ##### OE1.1 Evolución temporal del número de publicaciones por tipo de estudio #####
-files_merged_12052026 <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/files_merged_12052026.xlsx", 
+files_merged_12052026 <- read_excel("datos/files_merged_12052026.xlsx",
                                     sheet = "Sheet1")
 files_merged_articles <- files_merged_12052026 %>% 
   filter(str_detect(Document.Type, regex("article", ignore_case = TRUE))) #que se quede solo los articulos
@@ -131,7 +131,7 @@ cuantoNA <- data_OE1_2 %>%
 (21/271)*100
 
 ####OE2. VARIABLES Y FACTORES MÁS IMPORTANTES####
-S3_measures <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx",
+S3_measures <- read_excel("datos/Data_treatment_v4.xlsx", 
                           sheet = "3_measures")
 S3_measures_MB <- S3_measures %>%
   inner_join(S2_fire_MB, by = "our_id")
@@ -283,10 +283,7 @@ ggplot(subtipos_vegetacion, aes(x = reorder(response_variable_clean, percentage)
 write_xlsx(V_clasificacion, "V_class.xlsx")
 
 ######Suelos######
-S3_measuressuelo <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx",
-                          sheet = "3_measures")
-
-S3_measures_soil <- S3_measuressuelo %>%
+S3_measures_soil <- S3_measures_MB %>%
   filter(variable_type == "soil")
 
 #categorias: propiedades físicas, químicas, y biológicas. Procesos ecosistémicos e hidrológicos.
@@ -374,8 +371,8 @@ write_xlsx(S_clasificacion, "S_class.xlsx")
 #####OE2.2 Moderadores más importantes estudiados#####
 #solo descriptivo para asociar moderador a paper y facilitarme luego la agrupacion de moderadores (consultar papers si es necesario
 #no puedo dar un conteo tipo moderador / paper porque hemos agrupado moderadores, asi que esto es solo descriptivo
-S3_measures2 <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v3.xlsx",
-                          sheet = "3_measures")  #parte antes de que me pasaran datos
+S3_measures2 <- read_excel("datos/Data_treatment_v3.xlsx", 
+                           sheet = "3_measures")  #parte antes de que me pasaran datos
 S3_measures_MB2 <- S3_measures2 %>%
   inner_join(S2_fire_MB, by = "our_id")
 
@@ -450,7 +447,7 @@ M_clasificacion <- moderators_paper %>%
       TRUE ~ moderator_type_clean)) 
 
 #lo mismo con los papers que me han pasado
-S3_measures3 <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4_1.xlsx",
+S3_measures3 <- read_excel("datos/Data_treatment_v4_1.xlsx", 
                            sheet = "3_measures")  #solo datos de los otros reviewers, no mios
 S3_measures_MB3 <- S3_measures3 %>%
   inner_join(S2_fire_MB, by = "our_id")
@@ -657,7 +654,7 @@ ggplot()+
   )
 
 #EFIS NUMERO DE INCENDIOS (Start date: 01/10/2008, End date: 11/06/2026)
-fires_EFIS <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Distribucion geografica/EFIS_data/fires_EFIS.xlsx")
+fires_EFIS <- read_excel("datos/fires_EFIS.xlsx")
 n_fires_MB <- fires_EFIS %>%
   select(-sclerophillous_vegetation_percent, -transitional_vegetation_percent, -other_natural_percent,
          -agriculture_percent, -artificial_percent, -other_percent, -natura2k_percent) %>% 
@@ -701,8 +698,8 @@ ggplot(study_fire_cross, aes(x = num_incendios08_26, y = num_estudios08_26)) +
   theme_minimal()
 
 ######Severidad, bosque afectado y manejo#####
-S2_severity <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
-                      sheet = "2_fire") %>% 
+S2_severity <- read_excel("datos/Data_treatment_v4.xlsx", 
+                          sheet = "2_fire") %>% 
   filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica")) %>%
   distinct(our_id, fire_id, .keep_all = TRUE) %>% 
   mutate(severity = if_else(severity %in% c("low;medium;high", 
@@ -714,14 +711,14 @@ S2_severity <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de A
   arrange(desc(total)) %>% 
   mutate(porcentaje = round((total / sum(total)) * 100, 2))
 
-S2_foresttype <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
-                                           sheet = "2_fire") %>% 
+S2_foresttype <- read_excel("datos/Data_treatment_v4.xlsx", 
+                            sheet = "2_fire") %>% 
   filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica")) %>% 
   distinct(our_id, fire_id, forest_type, .keep_all = TRUE) %>% 
   group_by(forest_type) %>% 
   summarise(total = n())
 
-S2_postfireMG <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
+S2_postfireMG <- read_excel("datos/Data_treatment_v4.xlsx", 
                             sheet = "2_fire") %>% 
   filter(!country %in% c("Australia", "California", "Chile", "EEUU", "SouthAfrica")) %>% 
   distinct(our_id, fire_id, postfire_management, .keep_all = TRUE) %>%
