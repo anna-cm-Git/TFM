@@ -81,7 +81,7 @@ ggplot(data_OE1_2, aes(x = Year)) +
 
 ##### OE1.2 Asociación entre study_level y study_type: ¿el tipo de estudio varia segun si se estudia a nivel de comunidad o especie? #####
 #para el global de estudios
-solo_vegetacion <- subset(data_OE1_2, !is.na(study_level) & study_level != "NA")
+solo_vegetacion <- subset(data_OE1_1, !is.na(study_level) & study_level != "NA")
 relacion_ST_SL <- xtabs(~ study_level + study_type, data = solo_vegetacion)
 relacion_ST_SL
 global <- prop.table(relacion_ST_SL) * 100     # % respecto el total de estudios
@@ -285,7 +285,7 @@ ggplot(subtipos_vegetacion, aes(x = reorder(response_variable_clean, percentage)
   theme_minimal() +
   theme(axis.title.y = element_text(margin = margin(r = 6)))
 
-#3 primeros subtipos ver variable respuesta más medida, exporto un excel y lo miro manual
+#exporto Excel para agrupar (nuevas categorias) variables más medidas
 write_xlsx(V_clasificacion, "V_class.xlsx")
 
 ######Suelos######
@@ -363,7 +363,7 @@ ggplot(subtipos_suelos, aes(x = reorder(response_variable_clean, percentage), y 
   geom_bar(stat = "identity", fill = "brown") +
   scale_x_discrete(limits = levels(reorder(subtipos_suelos$response_variable_clean, subtipos_suelos$percentage)),
                    labels = c("physical properties" = "Propiedades físicas", "chemical properties" = "Propiedades químicas",
-                              "biological properties" = "Propiedades biologicas", "ecosystem processes" = "Procesos ecosistémicos",
+                              "biological properties" = "Propiedades biológicas", "ecosystem processes" = "Procesos ecosistémicos",
                               "hydrological processes" = "Procesos hidrológicos", "soil quality index" = "Calidad del suelo")) +
   coord_flip() +
   labs(
@@ -374,7 +374,7 @@ ggplot(subtipos_suelos, aes(x = reorder(response_variable_clean, percentage), y 
   theme_minimal() +
   theme(axis.title.y = element_text(margin = margin(r = 6)))
 
-#3 primeros subtipos ver variables respuesta más medidas (>10%)
+#exporto Excel para agrupar (nuevas categorias) variables más medidas
 write_xlsx(S_clasificacion, "S_class.xlsx")
 
 #####OE2.2 Moderadores más importantes estudiados#####
@@ -546,11 +546,49 @@ M_clasificacion2 <- moderators_colab %>%
       our_id == 884 & moderator_type == " pre-fire vegetation" ~ "vegetation traits",
       TRUE ~ moderator_type_clean)) 
 
-#union de bases de datos mia y reviewers
+#union de bases de datos mia y revisoras
 M_classTotal <- bind_rows(M_clasificacion, M_clasificacion2) %>% 
   mutate(moderator_type_clean = if_else(moderator_type_clean == "climate",
                                         "environmental and site conditions", #que clima sea condiciones ambientales y de sitio
                                         moderator_type_clean))
+
+#exporto Excel 
+write_xlsx(M_classTotal, "M_classTotal.xlsx")
+#agrupacion variables más medidas (nuevas categorias) mediante codigo
+vegetationtraitsClass<- M_classTotal %>% 
+  filter(moderator_type_clean == "vegetation traits") %>% 
+  distinct()
+
+vegetationtraits <- function (var) {
+  
+  index <- "index|ndvi|evi|spectr|satellit"
+  lifor <- "life form|regenerat|trait|function|strateg|resprout|seed|raunki|phenolog"
+  diver <- "divers|richness|shannon|simpson|evenness"
+  spide <- "species|taxa|taxon|flora|ulex|rosmarinus|cistus|pinus|quercus"
+  vegty <- "vegetation type|pre-fire veg|communit|forest|shrub|grass|woodland|biome|ecosystem"
+  vestr <- "cover|basal|diamet|height|structur|biomass|snag|densit|canopy|lai|leaf area|size"
+  varlower <- str_to_lower(var) #pasar a minusculas
+ 
+  case_when(     # el orden importa: lo q tiene menos opciones primero = lo prioritario
+    str_detect(varlower, index) ~ "remote sensing index",
+    str_detect(varlower, lifor) ~ "life form and functional traits",
+    str_detect(varlower, diver) ~ "diversity and richness",
+    str_detect(varlower, spide) ~ "species identity",
+    str_detect(varlower, vegty) ~ "vegetation type",
+    str_detect(varlower, vestr) ~ "vegetation structure",
+    
+    varlower %in% c("-", "na", "nan") ~ "none",    # NA's se llamen none (en minuscula por str_to_lower)
+    is.na(varlower) ~ "none",                      # Por si entra un NA real de R
+    TRUE ~ var)
+  }
+  
+VegTraits_class <- vegetationtraitsClass %>% 
+  mutate(across(
+    .cols = c(moderator_type), 
+    .fns = ~ vegetationtraits(.x), 
+    .names = "{.col}_clean2"
+  )) %>% 
+  count(moderator_type_clean2, sort = TRUE)
 
 #porcentaje de papers que analiza cada tipo de moderador
 total_papers <- n_distinct(M_classTotal$our_id)
@@ -590,7 +628,10 @@ ggplot(Mods_final2, aes(x = reorder(moderator_type_clean, percentage), y = perce
 ####OE3. MAPEAR ESTUDIOS POR PAIS Y CRUZAR CON INCENDIOS####
 studies_90_26 <- data_OE1_1 %>%
   group_by(country) %>% 
-  summarise(n_studies = n())
+  summarise(n_studies = n()) %>% 
+  slice(-7) %>% 
+  mutate(percentage = (n_studies / sum(n_studies)) * 100) %>%
+  arrange(desc(n_studies))
 
 world <- ne_countries(scale = "medium", returnclass = "sf")   #cargo paises del mundo
 mbasis <- c("Algeria", "France", "Greece", "Israel","Italy", "Morocco","Portugal",
@@ -604,21 +645,24 @@ mbasis_world <- world %>% filter(name %in% mbasis)    #defino y filtro por mis p
 mapa_mb_w <- left_join(mbasis_world, studies_90_26, by = c("name" = "country"))
 
 #DIBUIXAR EL MAPA
-ggplot(data = mapa_mb_w) +
-  geom_sf(aes(fill = n_studies), color = "black", linewidth = 0.2) +
-  geom_sf_label(aes(label = n_studies),
+ggplot()+
+  geom_sf(data = world, fill = "grey95", color = "darkgrey", linewidth = 0.2) +
+  geom_sf(data = mapa_mb_w, aes(fill = n_studies), color = "black", linewidth = 0.2) +
+  geom_sf_label(data = mapa_mb_w, aes(label = n_studies),
                 fill = "white", color = "black", size = 3.5,
                 fontface = "bold", label.size = 0.2) +
-  scale_fill_viridis_c(option = "magma", na.value = "grey90", direction = -1) +
+  scale_fill_viridis_c(option = "magma", na.value = "grey70", direction = -1) +
   coord_sf(xlim = c(-15, 40), ylim = c(25, 50), expand = FALSE) +
   theme_minimal() +
+  theme(panel.background = element_rect(fill = "#D6EAF8", color = NA), 
+        panel.grid.major = element_line(color = "white", linewidth = 0.3)) +
   labs(
     fill = "Nº estudios",
     x = "Longitud",
     y = "Latitud"
   )
 
-#EFIS NUMBER OF FIRES (Start date: 01/10/2008, End date: 11/06/2026)
+#EFIS NUMERO DE INCENDIOS (Start date: 01/10/2008, End date: 11/06/2026)
 fires_EFIS <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Distribucion geografica/EFIS_data/fires_EFIS.xlsx")
 n_fires_MB <- fires_EFIS %>%
   select(-sclerophillous_vegetation_percent, -transitional_vegetation_percent, -other_natural_percent,
@@ -629,39 +673,38 @@ n_fires_MB <- fires_EFIS %>%
     num_incendios08_26 = n_distinct(id)) %>% 
   arrange(desc(num_incendios08_26))
 
-#CROSS WITH STUDIES NUMBER
-#nº estudios del 2008 al 2026   <-- revisar esto y pillar período exacto o comentarlo en la discusión
+#Numero de estudios del 2008 al 2026
 studies_08_26 <- data_OE1_1 %>%
   filter(Year >= 2008,
          Year <= 2026) %>% 
   group_by(country) %>% 
   summarise(num_estudios08_26 = n())
 
-#cruzo nº incendios con nº estudios (2008 - 2026)
+#cruzo nº incendios con nº estudios (2008 - 2026) -->  a tener en cuenta meses de inicio y final de los datos
 study_fire_cross <- left_join(n_fires_MB, studies_08_26, by = "country") %>% 
-  filter(!is.na(num_estudios08_26))
+  filter(!is.na(num_estudios08_26)) %>% 
+  mutate(country_es = case_when(
+    country == "Spain" ~ "España",
+    country == "Italy" ~ "Italia",
+    country == "France" ~ "Francia",
+    country == "Greece" ~ "Grecia",
+    country == "Turkey" ~ "Turquía",
+    country == "Algeria" ~ "Argelia",
+    country == "Morocco" ~ "Marruecos",
+    TRUE ~ country))
 
 write_xlsx(study_fire_cross, "cruce_st_fires_08_26.xlsx")
-  
-#mapa cruce incendios - estudios 2008 - 2026
-crossmap_08_26 <- left_join(mbasis_world, study_fire_cross, by = c("name" = "country"))
-ggplot(data = crossmap_08_26) +
-  geom_sf(aes(fill = num_estudios08_26), color = "black", linewidth = 0.2) +
-  geom_sf_label(aes(label = paste0(num_incendios08_26)),
-    data = . %>% filter(!is.na(num_incendios08_26)), 
-    fill = "white",
-    color = "black",
-    size = 2.8,
-    fontface = "bold",
-    label.size = 0.2) +
-  scale_fill_viridis_c(option = "magma", na.value = "grey90", direction = -1) +
-  coord_sf(xlim = c(-15, 40), ylim = c(25, 50), expand = FALSE) +
-  theme_minimal() +
-  labs(
-    fill = "Nº estudios",
-    x = "Longitud",
-    y = "Latitud",
-  )
+
+#grafico de puntos incendios - estudios 2008 - 2026
+ggplot(study_fire_cross, aes(x = num_incendios08_26, y = num_estudios08_26)) +
+  geom_smooth(data = subset(study_fire_cross, country_es != "España"), method = "lm", color = "darkkhaki", linetype = "dashed", se = FALSE) +
+  geom_smooth(method = "lm", color = "darksalmon", linetype = "dashed", se = FALSE) +
+  geom_point(color = "royalblue", size = 3.2) +
+  geom_text(aes(label = country_es), vjust = -1, hjust = -0.1, size = 3) +
+  annotate("text", x = 5650, y = 42, label = "Tendencia \ngeneral", color = "darksalmon", size = 3) +
+  annotate("text", x = 5650, y = 16, label = "Tendencia \nsin España", color = "darkkhaki", size = 3) +
+  labs(x = "Número de incendios",y = "Número de estudios") +
+  theme_minimal()
 
 ######Severidad, bosque afectado y manejo#####
 S2_severity <- read_excel("C:/Users/annac/Escritorio/OneDrive - Universidad de Alcala/01 MURE i Doctorat/14. PEX y TFM/TFM/Tratamiento datos/Data_treatment_v4.xlsx", 
